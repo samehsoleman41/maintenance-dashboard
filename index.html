@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>لوحة المدير — متصلة بـ Google Sheets</title>
+  <!-- Fonts / CSS -->
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+  <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet" />
+  <style>
+    :root{ --primary:#f97316; --bg:#faf8f5; --card:#fff; --text:#111 }
+    body{ font-family:'Tajawal', system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text) }
+    .navbar{ background:var(--primary)!important }
+    .btn-primary{ background:var(--primary); border-color:var(--primary) }
+    .btn-primary:hover{ filter:brightness(.95) }
+    .card{ border:none; border-radius:1rem; box-shadow:0 6px 18px rgba(0,0,0,.06) }
+    .kpi{ color:#fff; border-radius:1rem }
+    .pill{ border-radius:999px; font-size:.75rem; padding:.25rem .6rem; display:inline-block }
+    .pill-new{ background:#fff4ea; color:var(--primary) }
+    .pill-inp{ background:#eaf6ff; color:#0ea5e9 }
+    .pill-done{ background:#eafaf0; color:#16a34a }
+    .pill-cancel{ background:#eee; color:#555 }
+    .form-control,.form-select{ border-radius:.8rem }
+    .offcanvas{ width:min(560px, 100vw) }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar navbar-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="#"><i class="fa-solid fa-screwdriver-wrench me-2"></i><span id="brandName">لوحة إدارة الصيانة</span></a>
+      <div class="d-flex gap-2">
+        <button class="btn btn-light" data-bs-toggle="offcanvas" data-bs-target="#offSettings"><i class="fa-solid fa-gear me-1"></i> الإعدادات</button>
+        <button class="btn btn-light" onclick="window.print()"><i class="fa-solid fa-print me-1"></i> طباعة</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container py-4">
+    <!-- Filters -->
+    <div class="row g-3 align-items-end mb-3">
+      <div class="col-md-4">
+        <label class="form-label">بحث</label>
+        <input id="q" class="form-control" placeholder="ابحث باسم العميل / رقم التذكرة / نوع الجهاز" />
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">المهندس</label>
+        <select id="fltTech" class="form-select"></select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">الحالة</label>
+        <select id="fltStatus" class="form-select">
+          <option value="">كل الحالات</option>
+          <option value="new">new</option>
+          <option value="in_progress">in_progress</option>
+          <option value="done">done</option>
+          <option value="cancelled">cancelled</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">من</label>
+        <input id="from" type="date" class="form-control" />
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">إلى</label>
+        <input id="to" type="date" class="form-control" />
+      </div>
+    </div>
+
+    <div class="d-flex gap-2 mb-4">
+      <button id="btnSearch" class="btn btn-primary"><i class="fa-solid fa-filter me-1"></i> بحث</button>
+      <button id="btnReset" class="btn btn-outline-secondary"><i class="fa-solid fa-rotate-left me-1"></i> مسح</button>
+      <div class="ms-auto d-flex gap-2">
+        <button id="btnExportCSV" class="btn btn-success"><i class="fa-solid fa-file-csv me-1"></i> CSV</button>
+        <button id="btnExportXLSX" class="btn btn-success"><i class="fa-solid fa-file-excel me-1"></i> Excel</button>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="row g-3 mb-3">
+      <div class="col-sm-6 col-lg-3"><div class="kpi p-3" style="background:var(--primary)"><div class="small opacity-75">إجمالي التذاكر</div><div class="h4 m-0" id="kpiTotal">0</div></div></div>
+      <div class="col-sm-6 col-lg-3"><div class="kpi p-3" style="background:#0ea5e9"><div class="small opacity-75">قيد التنفيذ</div><div class="h4 m-0" id="kpiInProg">0</div></div></div>
+      <div class="col-sm-6 col-lg-3"><div class="kpi p-3" style="background:#22c55e"><div class="small opacity-75">مكتملة</div><div class="h4 m-0" id="kpiDone">0</div></div></div>
+      <div class="col-sm-6 col-lg-3"><div class="kpi p-3" style="background:#a78bfa"><div class="small opacity-75">إيراد الشهر</div><div class="h4 m-0" id="kpiRevenue">0</div></div></div>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <h5 class="m-0">التذاكر</h5>
+          <div>
+            <span class="pill pill-new">جديد</span>
+            <span class="pill pill-inp">قيد التنفيذ</span>
+            <span class="pill pill-done">مكتمل</span>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table id="tbl" class="table table-striped align-middle" style="width:100%">
+            <thead><tr>
+              <th>رقم</th><th>العميل</th><th>المهندس</th><th>الحالة</th><th>التاريخ</th>
+              <th>العربون</th><th>الإجمالي</th><th>صور</th><th>إسناد</th><th>إجراءات</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assign Offcanvas -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="offAssign">
+    <div class="offcanvas-header"><h5 class="offcanvas-title">إسناد تذكرة</h5><button class="btn-close" data-bs-dismiss="offcanvas"></button></div>
+    <div class="offcanvas-body">
+      <div class="mb-2"><label class="form-label">رقم التذكرة</label><input id="as_id" class="form-control" disabled></div>
+      <div class="mb-2"><label class="form-label">المهندس</label><select id="as_engineer" class="form-select"></select></div>
+      <div class="mb-2"><label class="form-label">هاتف العميل (اختياري)</label><input id="as_phone" class="form-control" placeholder="0100 000 0000"></div>
+      <div class="mb-2"><label class="form-label">ملخص</label><textarea id="as_summary" class="form-control" rows="2" placeholder="مثال: موعد اليوم الساعة 5 م"></textarea></div>
+      <div class="d-grid gap-2 mt-3"><button id="btnAssignNow" class="btn btn-primary"><i class="fa-solid fa-share-nodes me-1"></i> إسناد الآن</button></div>
+    </div>
+  </div>
+
+  <!-- Settings Offcanvas -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="offSettings">
+    <div class="offcanvas-header"><h5 class="offcanvas-title">الإعدادات</h5><button class="btn-close" data-bs-dismiss="offcanvas"></button></div>
+    <div class="offcanvas-body">
+      <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabCompany">بيانات الشركة</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabTheme">المظهر</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabPolicy">السياسات</button></li>
+      </ul>
+      <div class="tab-content">
+        <div class="tab-pane fade show active" id="tabCompany">
+          <div class="mb-2"><label class="form-label">اسم الشركة</label><input id="setCompany" class="form-control"></div>
+          <div class="row g-2">
+            <div class="col-6"><label class="form-label">هاتف الدعم</label><input id="setPhone" class="form-control"></div>
+            <div class="col-6"><label class="form-label">عنوان مختصر</label><input id="setAddress" class="form-control"></div>
+          </div>
+          <div class="mt-3 d-flex justify-content-end"><button id="btnSaveCompany" class="btn btn-primary">حفظ</button></div>
+        </div>
+        <div class="tab-pane fade" id="tabTheme">
+          <div class="row g-3">
+            <div class="col-6"><label class="form-label">اللون الأساسي</label><input id="setPrimary" type="color" class="form-control form-control-color" value="#f97316"></div>
+            <div class="col-6"><label class="form-label">الخط</label>
+              <select id="setFont" class="form-select"><option value="Tajawal">Tajawal</option><option value="Cairo">Cairo</option></select>
+            </div>
+          </div>
+          <div class="mt-3 d-flex justify-content-end"><button id="btnSaveTheme" class="btn btn-primary">تطبيق</button></div>
+        </div>
+        <div class="tab-pane fade" id="tabPolicy">
+          <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="polAddr"><label class="form-check-label" for="polAddr">إلزام العنوان التفصيلي</label></div>
+          <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="polNotes"><label class="form-check-label" for="polNotes">إلزام تفاصيل الطلب</label></div>
+          <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="polPhoto"><label class="form-check-label" for="polPhoto">إلزام صورة واحدة على الأقل</label></div>
+          <hr>
+          <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="polWA"><label class="form-check-label" for="polWA">تفعيل إشعارات واتساب</label></div>
+          <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="polTG"><label class="form-check-label" for="polTG">تفعيل إشعارات تليجرام</label></div>
+          <div class="mt-3 d-flex justify-content-end"><button id="btnSavePolicy" class="btn btn-primary">حفظ السياسات</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Libs -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <script>
+    // =============== API CONFIG ===============
+    const API_BASE = 'https://script.google.com/macros/s/AKfycbwBBfXb1CQKk5rYljkT3V89DLXSLdTTTHQGe39MJSw/dev'; // <-- رابطك
+    const API_KEY  = 'PUT_YOUR_API_KEY'; // ضع نفس القيمة من Script Properties
+
+    // =============== Helpers ===============
+    const $ = (s)=> document.querySelector(s);
+    let dt; let ALL = []; let TECHS = [];
+    function statusPill(s){ if(s==='in_progress')return '<span class="pill pill-inp">قيد التنفيذ</span>'; if(s==='done')return '<span class="pill pill-done">مكتمل</span>'; if(s==='cancelled')return '<span class="pill pill-cancel">ملغي</span>'; return '<span class="pill pill-new">جديد</span>'; }
+
+    // =============== API Calls ===============
+    async function apiGET(url){ const r = await fetch(url); const j = await r.json(); if(!j.ok) throw new Error(j.error||'API error'); return j; }
+    async function apiPOST(body){ const r = await fetch(API_BASE, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(Object.assign({key:API_KEY}, body))}); const j = await r.json(); if(!j.ok) throw new Error(j.error||'API error'); return j; }
+
+    async function fetchTickets(){
+      const j = await apiGET(`${API_BASE}?fn=listAll&key=${encodeURIComponent(API_KEY)}`);
+      return (j.data||[]).map(t=>({ id:t.ticket_id, customer:t.customer_name, tech:t.assigned_to||'', status:t.status||'new', date:t.opened_at||'', dep:Number(t.deposit||0), tot:Number(t.total||0), notes:t.order_notes||'', images:(t.device_images||'') }));
+    }
+    async function fetchTechs(){ const j = await apiGET(`${API_BASE}?fn=listTechs&key=${encodeURIComponent(API_KEY)}`); return (j.data||[]).map(x=> x.name).filter(Boolean); }
+    async function assignTicket(payload){ return apiPOST({ fn:'assignTicket', payload }); }
+    async function saveSettings(payload){ return apiPOST({ fn:'saveSettings', payload }); }
+    async function listSettings(){ const j = await apiGET(`${API_BASE}?fn=listSettings&key=${encodeURIComponent(API_KEY)}`); return j.data||{}; }
+
+    // =============== UI Fill ===============
+    function fillTechFilters(){ const sel=$('#fltTech'); sel.innerHTML=''; sel.insertAdjacentHTML('beforeend','<option value="">كل المهندسين</option>'); TECHS.forEach(n=> sel.insertAdjacentHTML('beforeend',`<option>${n}</option>`)); const s=$('#as_engineer'); s.innerHTML=''; TECHS.forEach(n=> s.insertAdjacentHTML('beforeend',`<option>${n}</option>`)); }
+
+    function refreshTable(rows){ if(dt){ dt.destroy(); $('#tbl tbody').innerHTML=''; }
+      const tb = $('#tbl tbody'); rows.forEach(r=>{ const imgs = (r.images||'').split('\n').filter(Boolean); const photos = imgs.length?`<a href="${imgs[0]}" target="_blank">${imgs.length} صورة</a>`:'—'; tb.insertAdjacentHTML('beforeend',`<tr>
+        <td>${r.id}</td><td>${r.customer||''}</td><td>${r.tech||''}</td><td>${statusPill(r.status)}</td><td>${r.date||''}</td><td>${r.dep||0}</td><td>${r.tot||0}</td><td>${photos}</td>
+        <td><button class="btn btn-sm btn-outline-primary" onclick="openAssign('${r.id}')">إسناد</button></td>
+        <td class="text-nowrap"><button class="btn btn-sm btn-outline-secondary" onclick="copyLink('${r.id}')">نسخ رابط</button></td></tr>`); });
+      dt = new DataTable('#tbl', { language:{ url:'https://cdn.datatables.net/plug-ins/1.13.6/i18n/ar.json' }, pageLength:10 });
+      // KPIs
+      $('#kpiTotal').textContent = rows.length;
+      $('#kpiInProg').textContent = rows.filter(t=>t.status==='in_progress').length;
+      $('#kpiDone').textContent   = rows.filter(t=>t.status==='done').length;
+      const month = new Date().toISOString().slice(0,7); const rev = rows.filter(t=> (t.date||'').startsWith(month)).reduce((a,b)=> a + (Number(b.tot)||0), 0); $('#kpiRevenue').textContent = rev.toLocaleString('ar-EG') + ' ج';
+    }
+
+    function applyFilters(){ const q=($('#q').value||'').toLowerCase(); const te=$('#fltTech').value; const st=$('#fltStatus').value; const f=$('#from').value; const t=$('#to').value; const rows = ALL.filter(r=>{ let ok=true; if(q) ok = ok && (`${r.id} ${r.customer} ${r.tech} ${r.notes}`.toLowerCase().includes(q)); if(te) ok = ok && r.tech===te; if(st) ok = ok && r.status===st; if(f) ok = ok && new Date(r.date)>=new Date(f); if(t) ok = ok && new Date(r.date)<=new Date(t+'T23:59:59'); return ok; }); refreshTable(rows); }
+
+    // =============== Assign ===============
+    window.openAssign = (id)=>{ $('#as_id').value=id; new bootstrap.Offcanvas('#offAssign').show(); };
+    $('#btnAssignNow').addEventListener('click', async ()=>{
+      const ticket_id = $('#as_id').value; const engineer = $('#as_engineer').value; const phone = $('#as_phone').value.trim(); const summary = $('#as_summary').value.trim();
+      try{ await assignTicket({ ticket_id, engineer, phone, summary }); alert('تم الإسناد وإرسال الإشعار'); await reloadAll(); bootstrap.Offcanvas.getInstance('#offAssign').hide(); }catch(e){ alert('تعذر الإسناد: '+e.message); }
+    });
+
+    // =============== Settings ===============
+    function applyThemeFromSettings(st){ if(st.PRIMARY_COLOR){ document.documentElement.style.setProperty('--primary', st.PRIMARY_COLOR); } if(st.FONT_FAMILY){ document.body.style.fontFamily = `${st.FONT_FAMILY}, system-ui, -apple-system, Segoe UI, Roboto, Arial`; } if(st.COMPANY_NAME){ $('#brandName').textContent = st.COMPANY_NAME; $('#setCompany').value = st.COMPANY_NAME; } $('#setPhone').value = st.SUPPORT_PHONE||''; $('#setAddress').value = st.SUPPORT_ADDR||''; $('#setPrimary').value = st.PRIMARY_COLOR||'#f97316'; $('#setFont').value = st.FONT_FAMILY||'Tajawal'; $('#polAddr').checked = String(st.REQUIRE_ADDRESS_DETAIL||'true').toLowerCase()==='true'; $('#polNotes').checked = String(st.REQUIRE_NOTES||'true').toLowerCase()==='true'; $('#polPhoto').checked = String(st.REQUIRE_PHOTO||'false').toLowerCase()==='true'; $('#polWA').checked = String(st.NOTIFY_WA||'true').toLowerCase()==='true'; $('#polTG').checked = String(st.NOTIFY_TG||'false').toLowerCase()==='true'; }
+
+    $('#btnSaveCompany').addEventListener('click', async ()=>{ try{ await saveSettings({ COMPANY_NAME: $('#setCompany').value.trim(), SUPPORT_PHONE: $('#setPhone').value.trim(), SUPPORT_ADDR: $('#setAddress').value.trim() }); alert('تم الحفظ'); await loadSettings(); }catch(e){ alert('تعذر الحفظ'); } });
+    $('#btnSaveTheme').addEventListener('click', async ()=>{ try{ await saveSettings({ PRIMARY_COLOR: $('#setPrimary').value, FONT_FAMILY: $('#setFont').value }); alert('تم تطبيق المظهر'); await loadSettings(); }catch(e){ alert('تعذر الحفظ'); } });
+    $('#btnSavePolicy').addEventListener('click', async ()=>{ try{ await saveSettings({ REQUIRE_ADDRESS_DETAIL: String($('#polAddr').checked), REQUIRE_NOTES: String($('#polNotes').checked), REQUIRE_PHOTO: String($('#polPhoto').checked), NOTIFY_WA: String($('#polWA').checked), NOTIFY_TG: String($('#polTG').checked) }); alert('تم حفظ السياسات'); }catch(e){ alert('تعذر الحفظ'); } });
+
+    // =============== Export ===============
+    function exportCSV(rows){ const header=['id','customer','tech','status','date','dep','tot','notes']; const csv=[header.join(',')].concat(rows.map(r=> header.map(h=> JSON.stringify(r[h]??'')).join(','))).join('\n'); const blob=new Blob([csv], {type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='tickets.csv'; a.click(); URL.revokeObjectURL(url); }
+    function exportXLSX(rows){ const ws=XLSX.utils.json_to_sheet(rows); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Tickets'); XLSX.writeFile(wb, 'tickets.xlsx'); }
+    $('#btnExportCSV').onclick = ()=> exportCSV(ALL); $('#btnExportXLSX').onclick = ()=> exportXLSX(ALL);
+
+    // =============== Utils ===============
+    window.copyLink = (id)=>{ navigator.clipboard.writeText(location.href.split('#')[0]); alert('تم نسخ رابط الصفحة.'); };
+
+    async function loadSettings(){ try{ const st = await listSettings(); applyThemeFromSettings(st); }catch(e){ console.warn('settings error', e); } }
+    async function reloadAll(){ ALL = await fetchTickets(); refreshTable(ALL); }
+
+    // =============== Init ===============
+    document.addEventListener('DOMContentLoaded', async ()=>{
+      await loadSettings();
+      try{ TECHS = await fetchTechs(); }catch(e){ TECHS=[]; }
+      fillTechFilters();
+      await reloadAll();
+      $('#btnSearch').addEventListener('click', applyFilters);
+      $('#btnReset').addEventListener('click', async ()=>{ $('#q').value=''; $('#fltTech').value=''; $('#fltStatus').value=''; $('#from').value=''; $('#to').value=''; await reloadAll(); });
+    });
+  </script>
+</body>
+</html>
