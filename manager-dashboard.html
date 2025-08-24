@@ -164,6 +164,51 @@ window.APP_CONFIG = {
     const sel=$('#fltTech'); sel.innerHTML=''; sel.insertAdjacentHTML('beforeend','<option value="">كل المهندسين</option>');
     TECHS.forEach(n=> sel.insertAdjacentHTML('beforeend',`<option>${n}</option>`));
   }
+<button onclick="openTicketForm()">إضافة تذكرة جديدة</button>
+
+<div id="ticketForm" style="display:none;">
+  <input type="text" id="customerName" placeholder="اسم العميل">
+  <input type="text" id="phone" placeholder="رقم الهاتف">
+  <input type="text" id="address" placeholder="العنوان">
+  <input type="text" id="deviceType" placeholder="نوع الجهاز">
+  <input type="text" id="problemDesc" placeholder="وصف المشكلة">
+  <input type="text" id="assignedTo" placeholder="اسم المهندس">
+  <button onclick="saveTicket()">حفظ</button>
+</div>
+
+<script>
+function openTicketForm() {
+  document.getElementById("ticketForm").style.display = "block";
+}
+
+function saveTicket() {
+  const data = {
+    ticket_id: 'T-' + Date.now(),
+    customer_name: document.getElementById("customerName").value,
+    phone: document.getElementById("phone").value,
+    address: document.getElementById("address").value,
+    device_type: document.getElementById("deviceType").value,
+    problem_desc: document.getElementById("problemDesc").value,
+    status: 'new',
+    assigned_to: document.getElementById("assignedTo").value
+  };
+
+  fetch(CONFIG.API_BASE, {
+    method: 'POST',
+    body: JSON.stringify({ fn: "addTicket", key: CONFIG.API_KEY, data }),
+    headers: { "Content-Type": "application/json" }
+  })
+  .then(res => res.json())
+  .then(res => {
+    if (res.ok) {
+      alert("تم إضافة التذكرة بنجاح");
+      location.reload();
+    } else {
+      alert("خطأ: " + res.error);
+    }
+  });
+}
+</script>
 
   function refreshTable(rows){
     if(dt){ dt.destroy(); $('#tbl tbody').innerHTML=''; }
