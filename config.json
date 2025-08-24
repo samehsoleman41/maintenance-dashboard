@@ -1,0 +1,21 @@
+{
+  "API_BASE": "https://script.google.com/macros/s/AKfycbwBBfXb1CQKk5rYljkT3V89DLXSLdTTTHQGe39MJSw/dev",
+  "API_KEY": "1W1UhrA7G7Df1HbVlyZ1Sh9tVNtD-E6HhW7yWQ6QkCw1ilg4RvIx5Y26Z",
+  "DEFAULT_COUNTRY_CODE": "20",
+  "COMPANY_NAME": "مصر تكنولوجى",
+  "PRIMARY_COLOR": "#f97316",
+  "FONT_FAMILY": "Tajawal",
+  "POLICIES": {
+    "REQUIRE_ADDRESS_DETAIL": true,
+    "REQUIRE_NOTES": true,
+    "REQUIRE_PHOTO": false,
+    "NOTIFY_WA": true,
+    "NOTIFY_TG": false
+  },
+  "INTEGRATIONS": {
+    "WHATSAPP_PHONE": "201117949334",
+    "WHATSAPP_APIKEY": "1794612",
+    "TELEGRAM_BOT_TOKEN": "8464174286:AAE5Iz3IJAPjNvzjzpMwVyqTON3vXN33BCg",
+    "TELEGRAM_CHAT_ID": ""
+  }
+}
