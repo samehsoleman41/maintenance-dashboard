@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>لوحة المهندس — متصلة بـ Google Sheets</title>
+  <title>مصر تكنولوجى — لوحة المهندس</title>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
@@ -11,9 +11,6 @@
     :root{ --primary:#f97316; --bg:#faf8f5; --card:#fff; --text:#111 }
     body{ font-family:'Tajawal', system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text) }
     .navbar{ background:var(--primary)!important }
-    .btn-primary{ background:var(--primary); border-color:var(--primary) }
-    .btn-primary:hover{ filter:brightness(.95) }
-    .card{ border:none; border-radius:1rem; box-shadow:0 6px 18px rgba(0,0,0,.06) }
     .pill{ border-radius:999px; font-size:.75rem; padding:.25rem .6rem; display:inline-block }
     .pill-new{ background:#fff4ea; color:var(--primary) }
     .pill-inp{ background:#eaf6ff; color:#0ea5e9 }
@@ -21,9 +18,10 @@
     .ticket-card:hover{ transform:translateY(-2px); transition:.2s }
     .thumb{ width:70px; height:70px; object-fit:cover; border-radius:.7rem; border:1px solid #eee }
     .form-control, .form-select{ border-radius:.8rem }
-    .modal-content{ border-radius:1rem }
     .floating-add{ position:fixed; inset-inline-end:16px; inset-block-end:16px; z-index:999 }
   </style>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#f97316">
 </head>
 <body>
   <nav class="navbar navbar-dark">
@@ -39,10 +37,27 @@
 
   <div class="container py-4">
     <div class="row g-3 align-items-end mb-3">
-      <div class="col-md-5"><label class="form-label">بحث في تذاكري</label><input id="search" class="form-control" placeholder="اسم العميل / رقم التذكرة / نوع الجهاز" /></div>
-      <div class="col-md-3"><label class="form-label">الحالة</label><select id="fltStatus" class="form-select"><option value="">غير مكتمل فقط</option><option value="new">new</option><option value="in_progress">in_progress</option><option value="done">done</option></select></div>
-      <div class="col-md-2"><label class="form-label">من</label><input id="from" type="date" class="form-control" /></div>
-      <div class="col-md-2"><label class="form-label">إلى</label><input id="to" type="date" class="form-control" /></div>
+      <div class="col-md-5">
+        <label class="form-label">بحث في تذاكري</label>
+        <input id="search" class="form-control" placeholder="ابحث باسم العميل / رقم التذكرة / نوع الجهاز" />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">الحالة</label>
+        <select id="fltStatus" class="form-select">
+          <option value="">كل الحالات</option>
+          <option value="new">new</option>
+          <option value="in_progress">in_progress</option>
+          <option value="done">done</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">من</label>
+        <input id="from" type="date" class="form-control" />
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">إلى</label>
+        <input id="to" type="date" class="form-control" />
+      </div>
     </div>
 
     <div class="row g-3 mb-3">
@@ -58,7 +73,6 @@
 
   <button class="btn btn-primary rounded-pill shadow floating-add" id="btnQuick"><i class="fa-solid fa-bolt me-1"></i> حفظ التغييرات الجارية</button>
 
-  <!-- تفاصيل -->
   <div class="modal fade" id="mdl" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
       <div class="modal-content">
@@ -67,40 +81,37 @@
           <div class="row g-2 align-items-end">
             <div class="col-md-4"><label class="form-label">رقم التذكرة</label><input id="f_id" class="form-control" disabled /></div>
             <div class="col-md-4"><label class="form-label">العميل</label><input id="f_customer" class="form-control" disabled /></div>
-            <div class="col-md-4">
-              <label class="form-label">الهاتف</label>
+            <div class="col-md-4"><label class="form-label">الهاتف</label>
               <div class="input-group">
                 <input id="f_phone" class="form-control" disabled />
-                <a id="f_whatsapp" class="btn btn-success" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i></a>
+                <a id="f_whatsapp" class="btn btn-success" target="_blank"><i class="fa-brands fa-whatsapp"></i></a>
+                <a id="f_call" class="btn btn-outline-secondary" target="_blank"><i class="fa-solid fa-phone"></i></a>
               </div>
             </div>
             <div class="col-12">
               <label class="form-label">العنوان بالتفصيل</label>
               <div class="input-group">
                 <textarea id="f_addr_detail" class="form-control" rows="2" placeholder="مثال: الدور الثالث شقة 12..."></textarea>
-                <a id="btnMap" class="btn btn-outline-success" target="_blank" rel="noopener"><i class="fa-solid fa-map-location-dot"></i></a>
+                <a id="btnMap" class="btn btn-outline-success" target="_blank"><i class="fa-solid fa-map-location-dot"></i></a>
               </div>
             </div>
             <div class="col-6 col-md-3"><label class="form-label">العربون</label><input id="f_dep" type="number" class="form-control" /></div>
             <div class="col-6 col-md-3"><label class="form-label">الإجمالي</label><input id="f_tot" type="number" class="form-control" /></div>
-            <div class="col-6 col-md-3"><label class="form-label">موعد الاستحقاق</label><input id="f_due" type="date" class="form-control" /></div>
-            <div class="col-12"><label class="form-label">تفاصيل/تشخيص الطلب</label><textarea id="f_notes" class="form-control" rows="3"></textarea></div>
-            <div class="col-12"><label class="form-label">ملاحظات المهندس (داخلية)</label><textarea id="f_engnotes" class="form-control" rows="2"></textarea></div>
+            <div class="col-12"><label class="form-label">تفاصيل/تشخيص الطلب</label><textarea id="f_notes" class="form-control" rows="3" placeholder="مثال: تغيير سير، تغيير موتور، إصلاح كارتة..."></textarea></div>
           </div>
-
           <div class="mt-3">
             <div class="d-flex align-items-center justify-content-between">
-              <div class="fw-semibold">قطع مسحوبة</div><button class="btn btn-sm btn-outline-primary" id="btnAddPart"><i class="fa-solid fa-plus"></i> إضافة قطعة</button>
+              <div class="fw-semibold">قطع مسحوبة</div>
+              <button class="btn btn-sm btn-outline-primary" id="btnAddPart"><i class="fa-solid fa-plus"></i> إضافة قطعة</button>
             </div>
             <div id="parts" class="mt-2"></div>
           </div>
-
           <div class="mt-3">
             <div class="fw-semibold">صور الزيارة</div>
             <div class="row g-2 align-items-center mt-1">
               <div class="col-auto">
                 <label class="btn btn-outline-secondary mb-0">
-                  <i class="fa-solid fa-camera me-1"></i> رفع صور
+                  <i class="fa-solid fa-camera me-1"></i> رفع صور/فتح الكاميرا
                   <input id="f_photos" type="file" accept="image/*" capture="environment" multiple hidden />
                 </label>
               </div>
@@ -109,8 +120,6 @@
           </div>
         </div>
         <div class="modal-footer">
-          <a id="f_call" class="btn btn-outline-dark"><i class="fa-solid fa-phone"></i></a>
-          <a id="f_sms" class="btn btn-outline-secondary"><i class="fa-regular fa-message"></i></a>
           <button class="btn btn-outline-secondary" data-bs-dismiss="modal">إغلاق</button>
           <button id="btnSave" class="btn btn-primary">حفظ</button>
           <button id="btnDone" class="btn btn-success">تم الإغلاق</button>
@@ -121,95 +130,82 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    const API_BASE = 'YOUR_SCRIPT_DEPLOYMENT_URL/exec';
-    const urlKey = new URLSearchParams(location.search).get('key');
-    if (urlKey) localStorage.setItem('API_KEY', urlKey);
-    const API_KEY = localStorage.getItem('API_KEY') || '';
-    if (!API_KEY) alert('⚠️ أضف ?key=YOUR_API_KEY أول مرة لحفظه محليًا.');
+\
+// ===== الإعدادات العامة: قراءة config.json + دعم ?key= للتخزين المحلي =====
+window.APP_CONFIG = {
+  API_BASE: '',
+  API_KEY: '',
+  DEFAULT_COUNTRY_CODE: '20',
+  COMPANY_NAME: 'لوحة إدارة الصيانة',
+  PRIMARY_COLOR: '#f97316',
+  FONT_FAMILY: 'Tajawal',
+  POLICIES: { REQUIRE_ADDRESS_DETAIL:true, REQUIRE_NOTES:true, REQUIRE_PHOTO:false, NOTIFY_WA:true, NOTIFY_TG:false }
+};
+(function(){
+  const qs = new URLSearchParams(location.search);
+  const key = qs.get('key');
+  if (key) localStorage.setItem('API_KEY', key);
 
-    let SETTINGS = { PRIMARY_COLOR:'#f97316', FONT_FAMILY:'Tajawal', REQUIRE_ADDRESS_DETAIL:'true', REQUIRE_NOTES:'true', REQUIRE_PHOTO:'false' };
-    const REQUIRE = { ADDRESS_DETAIL: true, NOTES: true, AT_LEAST_ONE_PHOTO: false };
+  fetch('./config.json', {cache:'no-store'})
+    .then(r => r.ok ? r.json() : {})
+    .catch(()=>({}))
+    .then(cfg => {
+      Object.assign(window.APP_CONFIG, cfg||{});
+      if (!window.APP_CONFIG.API_KEY) {
+        window.APP_CONFIG.API_KEY = localStorage.getItem('API_KEY') || '';
+      }
+      if (window.APP_CONFIG.PRIMARY_COLOR) document.documentElement.style.setProperty('--primary', window.APP_CONFIG.PRIMARY_COLOR);
+      if (window.APP_CONFIG.FONT_FAMILY) document.body.style.fontFamily = window.APP_CONFIG.FONT_FAMILY + ', system-ui, -apple-system, Segoe UI, Roboto, Arial';
+      if (window.APP_CONFIG.COMPANY_NAME) {
+        const el = document.getElementById('brandName');
+        if (el) el.textContent = window.APP_CONFIG.COMPANY_NAME;
+      }
+      if (typeof window.__app_boot === 'function') window.__app_boot();
+    });
+})();
 
-    const $$ = (s)=> document.querySelector(s);
-    const $el = (tag, attrs={}, html='')=>{ const e=document.createElement(tag); Object.entries(attrs).forEach(([k,v])=> e.setAttribute(k,v)); if(html) e.innerHTML=html; return e }
+
+    let engineer = 'المهندس';
+    let tickets = [];
+    let current = null;
+    const $ = s=> document.querySelector(s);
+    const $el = (tag, attrs={}, html='')=>{ const e=document.createElement(tag); Object.entries(attrs).forEach(([k,v])=> e.setAttribute(k,v)); if(html) e.innerHTML=html; return e; };
     const getParam = (name)=> new URL(location.href).searchParams.get(name);
-    const DEFAULT_COUNTRY_CODE = '20';
-    function normalizePhone(raw){
-      if (!raw) return '';
-      let n = String(raw).trim().replace(/[^\d+]/g, '');
-      if (n.startsWith('+')) return n.replace(/\s+/g,'');
-      if (n.startsWith('00')) n = '+' + n.slice(2);
-      else if (n.startsWith('0')) n = '+' + DEFAULT_COUNTRY_CODE + n.slice(1);
-      else if (/^\d+$/.test(n)) n = '+' + n;
-      return n;
-    }
-    function waHref(raw, preset=''){ const n = normalizePhone(raw).replace(/^\+/, ''); const text = preset?`?text=${encodeURIComponent(preset)}`:''; return n?`https://wa.me/${n}${text}`:'#'; }
-    function telHref(raw){ const n = normalizePhone(raw); return n?`tel:${n}`:'#'; }
-    function smsHref(raw){ const n = normalizePhone(raw); return n?`sms:${n}`:'#'; }
+    const waLink = (num, txt='')=>{ const n=(num||'').replace(/\D/g,''); return n?`https://wa.me/${n}?text=${encodeURIComponent(txt)}`:'#'; };
+    const telLink = (num)=>{ const n=(num||'').replace(/\D/g,''); return n?`tel:${n}`:'#'; };
     const gmaps = (addr)=> `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr||'')}`;
 
-    let engineer = getParam('engineer') || getParam('tech') || 'المهندس أحمد';
-    let tickets = []; let current = null;
-
-    async function apiGET(url){
-      try{ const r = await fetch(url); const j = await r.json(); if(!j.ok) throw new Error(j.error||'API error'); return j; }
-      catch(e){
-        return new Promise((resolve,reject)=>{
-          const cb='cb_'+Date.now(); const s=document.createElement('script');
-          s.src = url + (url.includes('?')?'&':'?') + 'callback='+cb;
-          window[cb] = (data)=>{ resolve(data); s.remove(); delete window[cb]; };
-          s.onerror = reject; document.body.appendChild(s);
-        });
-      }
-    }
-    async function apiPOST(body){ const r = await fetch(API_BASE, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(Object.assign({key:API_KEY}, body))}); const j = await r.json(); if(!j.ok) throw new Error(j.error||'API error'); return j; }
-    function normDate(d){ if(!d) return ''; const s=String(d); if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10); const t=new Date(s); return isNaN(t)? '' : t.toISOString().slice(0,10); }
-
-    async function fetchSettings(){ try{ const j = await apiGET(`${API_BASE}?fn=listSettings&key=${encodeURIComponent(API_KEY)}`); SETTINGS=j.data||SETTINGS; document.documentElement.style.setProperty('--primary', SETTINGS.PRIMARY_COLOR||'#f97316'); document.body.style.fontFamily = `${SETTINGS.FONT_FAMILY||'Tajawal'}, system-ui, -apple-system, Segoe UI, Roboto, Arial`; REQUIRE.ADDRESS_DETAIL = String(SETTINGS.REQUIRE_ADDRESS_DETAIL||'true').toLowerCase()==='true'; REQUIRE.NOTES = String(SETTINGS.REQUIRE_NOTES||'true').toLowerCase()==='true'; REQUIRE.AT_LEAST_ONE_PHOTO = String(SETTINGS.REQUIRE_PHOTO||'false').toLowerCase()==='true'; }catch(e){} }
+    async function apiGET(url){ const r=await fetch(url); const j=await r.json(); if(!j.ok) throw new Error(j.error||'API error'); return j; }
+    async function apiPOST(body){ const r=await fetch(APP_CONFIG.API_BASE, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(Object.assign({key:APP_CONFIG.API_KEY}, body)) }); const j=await r.json(); if(!j.ok) throw new Error(j.error||'API error'); return j; }
 
     async function fetchTicketsFromServer(engineer){
-      const url = `${API_BASE}?fn=listTickets&engineer=${encodeURIComponent(engineer)}&key=${encodeURIComponent(API_KEY)}`;
+      const url = `${APP_CONFIG.API_BASE}?fn=listTickets&engineer=${encodeURIComponent(engineer)}&key=${encodeURIComponent(APP_CONFIG.API_KEY)}`;
       const j = await apiGET(url);
-      return j.data.map(t => ({
-        id:t.ticket_id, customer:t.customer_name, phone:t.phone, address:t.address, device:t.device_type,
-        problem:t.problem_desc, status:t.status || 'new',
-        assigned_to:t.assigned_to, date: normDate(t.opened_at||''),
-        dep:+(t.deposit||0), tot:+(t.total||0), addr_detail:t.address_detail||'',
-        notes:t.order_notes||'', engineer_notes:t.engineer_notes||'', due_at: t.due_at||'',
-        parts:[], photos:[]
-      }));
+      return j.data.map(t => ({ id: t.ticket_id, customer: t.customer_name, phone: t.phone, address: t.address, device: t.device_type, problem: t.problem_desc, status: t.status || 'new', assigned_to: t.assigned_to, date: (t.opened_at||''), dep: Number(t.deposit||0), tot: Number(t.total||0), addr_detail: t.address_detail||'', notes: t.order_notes||'', parts: [], photos: [] }));
     }
+
     async function apiUpdateTicket(payload){ return apiPOST({ fn:'updateTicket', payload }); }
     async function apiUploadPhotos(payload){ return apiPOST({ fn:'uploadPhotos', payload }); }
 
-    function isOverdue(t){
-      const due = t.due_at ? new Date(t.due_at) : null;
-      const opened = t.date ? new Date(t.date) : null;
-      const now = new Date();
-      return (due && now>due) || (!due && opened && ((now-opened)/(1000*3600*24) >= 3));
-    }
     function statusPill(s){ if (s==='in_progress') return '<span class="pill pill-inp">قيد التنفيذ</span>'; if (s==='done') return '<span class="pill pill-done">مكتمل</span>'; return '<span class="pill pill-new">جديد</span>'; }
 
     function ticketCard(t){
       const col = $el('div', { class:'col-12 col-md-6 col-xl-4' });
-      const overdue = isOverdue(t);
-      const wa = waHref(t.phone); const tel = telHref(t.phone); const sms = smsHref(t.phone);
-      const disabled = t.phone ? '' : 'disabled';
-      const card = $el('div', { class:'card p-3 ticket-card', style: overdue?'box-shadow:0 0 0 3px rgba(239,68,68,.25)':'' });
-      const badge = overdue ? `<span class="badge bg-danger ms-2">متأخرة</span>` : '';
+      const card = $el('div', { class:'card p-3 ticket-card' });
+      const overdue = (t.status!=='done' && t.date && (Date.now()-new Date(t.date).getTime())/86400000 >= 3) ? '<span class="badge bg-danger ms-2">متأخرة</span>' : '';
       card.innerHTML = `
         <div class="d-flex justify-content-between align-items-start">
           <div>
-            <div class="fw-semibold">${t.customer} ${badge}</div>
+            <div class="fw-semibold">${t.customer}</div>
             <div class="small text-muted">${t.device||'-'} — ${t.problem||'-'}</div>
             <div class="small text-muted">${t.address||'-'}</div>
           </div>
-          <div>${statusPill(t.status)}</div>
+          <div>${statusPill(t.status)}${overdue}</div>
         </div>
-        <div class="d-flex gap-2 mt-2 flex-wrap">
-          <a class="btn btn-success btn-sm ${disabled}" href="${wa}" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp me-1"></i> واتساب</a>
-          <a class="btn btn-outline-dark btn-sm ${disabled}" href="${tel}" target="_blank" rel="noopener"><i class="fa-solid fa-phone me-1"></i> اتصال</a>
-          <a class="btn btn-outline-secondary btn-sm ${disabled}" href="${sms}" target="_blank" rel="noopener"><i class="fa-regular fa-message me-1"></i> رسالة</a>
+        <div class="d-flex gap-2 mt-2">
+          <a class="btn btn-success btn-sm" href="${waLink(t.phone, 'مرحبًا، أنا المهندس المكلف بطلبك.')}"><i class="fa-brands fa-whatsapp me-1"></i> واتساب</a>
+          <a class="btn btn-outline-secondary btn-sm" href="${telLink(t.phone)}"><i class="fa-solid fa-phone me-1"></i> اتصال</a>
+          <a class="btn btn-outline-success btn-sm" href="${gmaps(t.address)}"><i class="fa-solid fa-map-location-dot me-1"></i> خريطة</a>
           <button class="btn btn-primary btn-sm" onclick="openDetails('${t.id}')"><i class="fa-solid fa-pen me-1"></i> التفاصيل</button>
           <button class="btn btn-outline-secondary btn-sm" onclick="markInProgress('${t.id}')">بدء</button>
           <button class="btn btn-outline-success btn-sm" onclick="markDone('${t.id}')">تم</button>
@@ -219,99 +215,107 @@
 
     function openDetails(id){
       current = tickets.find(x=>x.id===id); if (!current) return;
-      $$('#f_id').value = current.id;
-      $$('#f_customer').value = current.customer || '';
-      $$('#f_phone').value = current.phone || '';
+      $('#f_id').value = current.id; $('#f_customer').value = current.customer; $('#f_phone').value = current.phone||'';
+      $('#f_whatsapp').href = waLink(current.phone, `مرحبًا ${current.customer||''}`);
+      $('#f_call').href = telLink(current.phone);
+      $('#f_addr_detail').value = current.addr_detail||''; $('#f_dep').value = current.dep||0; $('#f_tot').value = current.tot||0; $('#f_notes').value = current.notes||'';
+      $('#btnMap').href = gmaps(`${current.address||''} ${($('#f_addr_detail').value||'')}`.trim());
 
-      const wa = waHref(current.phone), tel = telHref(current.phone), sms = smsHref(current.phone);
-      $$('#f_whatsapp').href = wa; $$('#f_call').href = tel; $$('#f_sms').href = sms;
-
-      $$('#f_addr_detail').value = current.addr_detail||'';
-      $$('#f_dep').value = current.dep||0; $$('#f_tot').value = current.tot||0;
-      $$('#f_due').value = (current.due_at||'').slice(0,10);
-      $$('#f_notes').value = current.notes||'';
-      $$('#f_engnotes').value = current.engineer_notes||'';
-      $$('#btnMap').href = gmaps(`${current.address||''} ${($$('#f_addr_detail').value||'')}`.trim());
-
-      const parts = $$('#parts'); parts.innerHTML=''; (current.parts||[]).forEach((p,i)=> parts.appendChild(partRow(i, p.name, p.qty)));
-      const prev = $$('#photoPreview'); prev.innerHTML=''; (current.photos||[]).forEach(src=> prev.appendChild(imgThumb(src)));
-      new bootstrap.Modal($$('#mdl')).show();
+      const parts = $('#parts'); parts.innerHTML='';
+      (current.parts||[]).forEach((p,i)=> parts.appendChild(partRow(i, p.name, p.qty)));
+      const prev = $('#photoPreview'); prev.innerHTML=''; (current.photos||[]).forEach(src=> prev.appendChild(imgThumb(src)));
+      new bootstrap.Modal($('#mdl')).show();
     }
-    function partRow(i, name='', qty=1){ const w = $el('div', { class:'row g-2 align-items-center mb-1' }); w.innerHTML = `<div class="col-7"><input class="form-control" type="text" placeholder="اسم القطعة" value="${name}"></div><div class="col-3"><input type="number" class="form-control" value="${qty}"></div><div class="col-2 d-grid"><button class="btn btn-outline-danger" type="button">حذف</button></div>`; w.querySelector('button').onclick = ()=> w.remove(); return w; }
-    function onPhotosSelected(e){ const prev = $$('#photoPreview'); [...e.target.files].forEach(async file=>{ const dataUrl = await fileToDataUrlCompressed(file); prev.appendChild(imgThumb(dataUrl)); }); }
-    function imgThumb(src){ return $el('img', { src, class:'thumb' }); }
+
+    function partRow(i, name='', qty=1){
+      const wrap = $el('div', { class:'row g-2 align-items-center mb-1' });
+      wrap.innerHTML = `<div class="col-7"><input class="form-control" type="text" placeholder="اسم القطعة" value="${name}"></div><div class="col-3"><input type="number" class="form-control" value="${qty}"></div><div class="col-2 d-grid"><button class="btn btn-outline-danger" type="button">حذف</button></div>`;
+      wrap.querySelector('button').onclick = ()=> wrap.remove(); return wrap;
+    }
+
+    function onPhotosSelected(e){
+      const prev = $('#photoPreview');
+      [...e.target.files].forEach(file=>{ const r = new FileReader(); r.onload = ()=> prev.appendChild(imgThumb(r.result)); r.readAsDataURL(file); });
+    }
+    function imgThumb(src){ const img=$el('img', { src, class:'thumb' }); return img; }
     function formHasPhoto(){ return document.querySelectorAll('#photoPreview img').length > 0; }
-    function validateBeforeSaveOrClose(requirePhoto){ const errs=[]; if (REQUIRE.ADDRESS_DETAIL && !$$('#f_addr_detail').value.trim()) errs.push('العنوان التفصيلي'); if (REQUIRE.NOTES && !$$('#f_notes').value.trim()) errs.push('تفاصيل/تشخيص الطلب'); if (requirePhoto && REQUIRE.AT_LEAST_ONE_PHOTO && !formHasPhoto()) errs.push('صورة واحدة على الأقل'); if (errs.length){ alert('الحقول المطلوبة: '+ errs.join(' + ')); return false; } return true; }
+
+    function validateBeforeSaveOrClose(requirePhoto){
+      const errs = [];
+      const REQ = APP_CONFIG.POLICIES||{};
+      if (String(REQ.REQUIRE_ADDRESS_DETAIL||'true').toLowerCase()==='true' && !$('#f_addr_detail').value.trim()) errs.push('العنوان التفصيلي');
+      if (String(REQ.REQUIRE_NOTES||'true').toLowerCase()==='true' && !$('#f_notes').value.trim()) errs.push('تفاصيل/تشخيص الطلب');
+      if (requirePhoto && String(REQ.REQUIRE_PHOTO||'false').toLowerCase()==='true' && !formHasPhoto()) errs.push('صورة واحدة على الأقل');
+      if (errs.length){ alert('الحقول المطلوبة: '+ errs.join(' + ')); return false; }
+      return true;
+    }
 
     async function saveTicketDetails(){
-      if (!current) return; if (!validateBeforeSaveOrClose(false)) return;
-      const payload = {
-        ticket_id: current.id, engineer,
-        address_detail: $$('#f_addr_detail').value.trim(),
-        deposit: +($$('#f_dep').value||0), total: +($$('#f_tot').value||0),
-        order_notes: $$('#f_notes').value.trim(),
-        engineer_notes: $$('#f_engnotes').value.trim(),
-        pulled_parts: partsToText(),
-        due_at: $$('#f_due').value || '',
-        markDone: false
-      };
+      if (!current) return;
+      if (!validateBeforeSaveOrClose(false)) return;
+      const payload = { ticket_id: current.id, engineer, address_detail: $('#f_addr_detail').value.trim(), deposit: Number($('#f_dep').value||0), total: Number($('#f_tot').value||0), order_notes: $('#f_notes').value.trim(), pulled_parts: partsToText(), markDone: false };
       let json = await apiUpdateTicket(payload);
-      if (!json.ok){ alert('تعذر الحفظ'); return; }
       const photosDataUrls = [...document.querySelectorAll('#photoPreview img')].map(i=> i.src);
       if (photosDataUrls.length){
         json = await apiUploadPhotos({ ticket_id: current.id, engineer, customer_name: current.customer, tech_name: engineer, photos: photosDataUrls, parts: [] });
-        if (!json.ok){ alert('تم الحفظ بدون الصور'); }
       }
-      alert('تم الحفظ'); try{ tickets = await fetchTicketsFromServer(engineer); }catch(e){}
-      bootstrap.Modal.getInstance($$('#mdl')).hide(); renderList();
+      alert('تم الحفظ.');
+      try{ tickets = await fetchTicketsFromServer(engineer); }catch(e){}
+      bootstrap.Modal.getInstance($('#mdl')).hide(); renderList();
     }
-    async function markInProgress(id){ const t=tickets.find(x=>x.id===id); if(!t) return; current=t; await apiUpdateTicket({ ticket_id:id, engineer, status:'in_progress', markDone:false }); try{ tickets = await fetchTicketsFromServer(engineer);}catch(e){} renderList(); }
-    async function markDone(id){ if (!id) return; if (!current) current = tickets.find(x=>x.id===id); if (!validateBeforeSaveOrClose(true)) return; const payload = { ticket_id:id, engineer, markDone:true }; const json = await apiUpdateTicket(payload); if (!json.ok){ alert('تعذر الإغلاق'); return; } try{ tickets = await fetchTicketsFromServer(engineer);}catch(e){} renderList(); bootstrap.Modal.getInstance($$('#mdl'))?.hide(); }
-    function partsToText(){ const rows = [...document.querySelectorAll('#parts .row')]; return rows.map(r=>{ const name = r.querySelector('input[type="text"]').value.trim(); const qty  = +(r.querySelector('input[type="number"]').value||1); return name ? `${name} x${qty}` : ''; }).filter(Boolean).join('\n'); }
+
+    async function markInProgress(id){
+      const t=tickets.find(x=>x.id===id); if(!t) return; current=t;
+      await apiUpdateTicket({ ticket_id:id, engineer, markDone:false });
+      try{ tickets = await fetchTicketsFromServer(engineer); }catch(e){} renderList();
+    }
+
+    async function markDone(id){
+      if (!id) return; if (!current) current = tickets.find(x=>x.id===id);
+      if (!validateBeforeSaveOrClose(true)) return;
+      const payload = { ticket_id:id, engineer, markDone:true };
+      const json = await apiUpdateTicket(payload);
+      alert('تم إغلاق التذكرة.');
+      try{ tickets = await fetchTicketsFromServer(engineer); }catch(e){} renderList(); bootstrap.Modal.getInstance($('#mdl'))?.hide();
+    }
+
+    function partsToText(){
+      const rows = [...document.querySelectorAll('#parts .row')];
+      return rows.map(r=>{
+        const name = r.querySelector('input[type="text"]').value.trim();
+        const qty  = Number(r.querySelector('input[type="number"]').value||1);
+        return name ? `${name} x${qty}` : '';
+      }).filter(Boolean).join('\n');
+    }
+
     function renderList(){
-      const list = $$('#list'); list.innerHTML='';
-      const q = ($$('#search').value||'').toLowerCase(); const st = $$('#fltStatus').value; const from=$$('#from').value; const to=$$('#to').value;
-      const mine = tickets
-        .filter(t=> t.assigned_to===engineer)
-        .filter(t=> !st ? (t.status!=='done') : t.status===st)
+      const list = $('#list'); list.innerHTML='';
+      const q = ($('#search').value||'').toLowerCase();
+      const st = $('#fltStatus').value; const from=$('#from').value; const to=$('#to').value;
+      const mine = tickets.filter(t=> t.assigned_to===engineer)
         .filter(t=> !q || (`${t.id} ${t.customer} ${t.device} ${t.problem}`.toLowerCase().includes(q)))
+        .filter(t=> !st || t.status===st)
         .filter(t=> !from || new Date(t.date)>=new Date(from))
         .filter(t=> !to || new Date(t.date)<=new Date(to+'T23:59:59'));
-      $$('#kAll').textContent = mine.length;
-      $$('#kInp').textContent = mine.filter(x=>x.status==='in_progress').length;
-      $$('#kDone').textContent = mine.filter(x=>x.status==='done').length;
+      $('#kAll').textContent = mine.length;
+      $('#kInp').textContent = mine.filter(x=>x.status==='in_progress').length;
+      $('#kDone').textContent = mine.filter(x=>x.status==='done').length;
       const todayStr = new Date().toISOString().slice(0,10);
-      $$('#kToday').textContent = mine.filter(x=>x.date===todayStr).length;
-      if (!mine.length){ $$('#empty').classList.remove('d-none'); return } else { $$('#empty').classList.add('d-none'); }
-      mine.forEach(t=> $$('#list').appendChild(ticketCard(t)));
+      $('#kToday').textContent = mine.filter(x=>x.date===todayStr).length;
+      if (!mine.length){ $('#empty').classList.remove('d-none'); return } else { $('#empty').classList.add('d-none'); }
+      mine.forEach(t=> $('#list').appendChild(ticketCard(t)));
     }
 
-    async function fileToDataUrlCompressed(file, maxSide=1280, quality=0.8){
-      const img = new Image(); const fr = new FileReader();
-      const load = new Promise((res,rej)=>{ img.onload=()=>res(); img.onerror=rej; });
-      const read = new Promise((res)=>{ fr.onload=()=>{ img.src=fr.result; res(); }; fr.readAsDataURL(file); });
-      await read; await load;
-      const canvas = document.createElement('canvas');
-      const ratio = Math.min(maxSide/img.width, maxSide/img.height, 1);
-      canvas.width = Math.round(img.width*ratio); canvas.height= Math.round(img.height*ratio);
-      const ctx = canvas.getContext('2d'); ctx.drawImage(img,0,0,canvas.width,canvas.height);
-      return canvas.toDataURL('image/jpeg', quality);
+    function __app_boot(){
+      engineer = getParam('engineer') || getParam('tech') || engineer;
+      document.getElementById('engineerNameShow').textContent = engineer;
+      ['search','fltStatus','from','to'].forEach(id=> $('#'+id).addEventListener('input', renderList));
+      document.getElementById('f_photos').addEventListener('change', onPhotosSelected);
+      document.getElementById('btnAddPart').addEventListener('click', ()=> document.getElementById('parts').appendChild(partRow(Date.now())) );
+      document.getElementById('btnSave').addEventListener('click', saveTicketDetails);
+      document.getElementById('btnDone').addEventListener('click', ()=> markDone(current?.id));
+      (async()=>{ try{ tickets = await fetchTicketsFromServer(engineer); }catch(e){ tickets=[]; } renderList(); })();
     }
-    function imgThumb(src){ const img=$el('img', { src, class:'thumb' }); return img }
-
-    function withBusy(btn, fn){ btn.disabled = true; btn.classList.add('disabled'); document.body.style.opacity=.6; return Promise.resolve(fn()).finally(()=>{ btn.disabled=false; btn.classList.remove('disabled'); document.body.style.opacity=1; }); }
-    document.addEventListener('DOMContentLoaded', async ()=>{
-      await fetchSettings();
-      $$('#engineerNameShow').textContent = engineer;
-      try{ tickets = await fetchTicketsFromServer(engineer); }catch(e){ tickets = []; }
-      ['search','fltStatus','from','to'].forEach(id=> $$('#'+id).addEventListener('input', renderList));
-      $$('#btnQuick').addEventListener('click', ()=> alert('تذكير: الحفظ يتم من داخل نموذج التذكرة'));
-      $$('#btnAddPart').addEventListener('click', ()=> $$('#parts').appendChild(partRow(Date.now())) );
-      $$('#f_photos').addEventListener('change', onPhotosSelected);
-      $$('#btnSave').addEventListener('click', ()=> withBusy($$('#btnSave'), saveTicketDetails));
-      $$('#btnDone').addEventListener('click', ()=> withBusy($$('#btnDone'), ()=> markDone(current?.id)));
-      renderList();
-    });
   </script>
 </body>
 </html>
