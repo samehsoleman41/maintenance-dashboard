@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>لوحة المدير — متصلة بـ Google Sheets</title>
-  <!-- Fonts / CSS -->
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
@@ -27,13 +26,15 @@
   </style>
 </head>
 <body>
-  <!-- Navbar -->
   <nav class="navbar navbar-dark">
     <div class="container-fluid">
       <a class="navbar-brand fw-bold" href="#"><i class="fa-solid fa-screwdriver-wrench me-2"></i><span id="brandName">لوحة إدارة الصيانة</span></a>
       <div class="d-flex gap-2">
+        <button class="btn btn-light" data-bs-toggle="offcanvas" data-bs-target="#offNew"><i class="fa-solid fa-user-plus me-1"></i> عميل جديد</button>
         <button class="btn btn-light" data-bs-toggle="offcanvas" data-bs-target="#offSettings"><i class="fa-solid fa-gear me-1"></i> الإعدادات</button>
+        <button class="btn btn-light" onclick="document.getElementById('xlsCustomers').click()"><i class="fa-solid fa-file-excel me-1"></i> استيراد عملاء</button>
         <button class="btn btn-light" onclick="window.print()"><i class="fa-solid fa-print me-1"></i> طباعة</button>
+        <input id="xlsCustomers" type="file" accept=".xlsx,.xls,.csv" hidden>
       </div>
     </div>
   </nav>
@@ -41,32 +42,13 @@
   <div class="container py-4">
     <!-- Filters -->
     <div class="row g-3 align-items-end mb-3">
-      <div class="col-md-4">
-        <label class="form-label">بحث</label>
-        <input id="q" class="form-control" placeholder="ابحث باسم العميل / رقم التذكرة / نوع الجهاز" />
+      <div class="col-md-4"><label class="form-label">بحث</label><input id="q" class="form-control" placeholder="ابحث باسم العميل / رقم التذكرة / نوع الجهاز" /></div>
+      <div class="col-md-2"><label class="form-label">المهندس</label><select id="fltTech" class="form-select"></select></div>
+      <div class="col-md-2"><label class="form-label">الحالة</label>
+        <select id="fltStatus" class="form-select"><option value="">كل الحالات</option><option value="new">new</option><option value="in_progress">in_progress</option><option value="done">done</option><option value="cancelled">cancelled</option></select>
       </div>
-      <div class="col-md-2">
-        <label class="form-label">المهندس</label>
-        <select id="fltTech" class="form-select"></select>
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">الحالة</label>
-        <select id="fltStatus" class="form-select">
-          <option value="">كل الحالات</option>
-          <option value="new">new</option>
-          <option value="in_progress">in_progress</option>
-          <option value="done">done</option>
-          <option value="cancelled">cancelled</option>
-        </select>
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">من</label>
-        <input id="from" type="date" class="form-control" />
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">إلى</label>
-        <input id="to" type="date" class="form-control" />
-      </div>
+      <div class="col-md-2"><label class="form-label">من</label><input id="from" type="date" class="form-control" /></div>
+      <div class="col-md-2"><label class="form-label">إلى</label><input id="to" type="date" class="form-control" /></div>
     </div>
 
     <div class="d-flex gap-2 mb-4">
@@ -91,11 +73,7 @@
       <div class="card-body">
         <div class="d-flex align-items-center justify-content-between mb-2">
           <h5 class="m-0">التذاكر</h5>
-          <div>
-            <span class="pill pill-new">جديد</span>
-            <span class="pill pill-inp">قيد التنفيذ</span>
-            <span class="pill pill-done">مكتمل</span>
-          </div>
+          <div><span class="pill pill-new">جديد</span><span class="pill pill-inp ms-1">قيد التنفيذ</span><span class="pill pill-done ms-1">مكتمل</span></div>
         </div>
         <div class="table-responsive">
           <table id="tbl" class="table table-striped align-middle" style="width:100%">
@@ -116,53 +94,29 @@
     <div class="offcanvas-body">
       <div class="mb-2"><label class="form-label">رقم التذكرة</label><input id="as_id" class="form-control" disabled></div>
       <div class="mb-2"><label class="form-label">المهندس</label><select id="as_engineer" class="form-select"></select></div>
-      <div class="mb-2"><label class="form-label">هاتف العميل (اختياري)</label><input id="as_phone" class="form-control" placeholder="0100 000 0000"></div>
-      <div class="mb-2"><label class="form-label">ملخص</label><textarea id="as_summary" class="form-control" rows="2" placeholder="مثال: موعد اليوم الساعة 5 م"></textarea></div>
+      <div class="mb-2"><label class="form-label">هاتف العميل (اختياري)</label><input id="as_phone" class="form-control"></div>
+      <div class="mb-2"><label class="form-label">ملخص</label><textarea id="as_summary" class="form-control" rows="2"></textarea></div>
       <div class="d-grid gap-2 mt-3"><button id="btnAssignNow" class="btn btn-primary"><i class="fa-solid fa-share-nodes me-1"></i> إسناد الآن</button></div>
     </div>
   </div>
 
-  <!-- Settings Offcanvas -->
-  <div class="offcanvas offcanvas-end" tabindex="-1" id="offSettings">
-    <div class="offcanvas-header"><h5 class="offcanvas-title">الإعدادات</h5><button class="btn-close" data-bs-dismiss="offcanvas"></button></div>
+  <!-- New Customer + Ticket -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="offNew">
+    <div class="offcanvas-header"><h5 class="offcanvas-title">عميل جديد + تذكرة</h5><button class="btn-close" data-bs-dismiss="offcanvas"></button></div>
     <div class="offcanvas-body">
-      <ul class="nav nav-tabs mb-3" role="tablist">
-        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabCompany">بيانات الشركة</button></li>
-        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabTheme">المظهر</button></li>
-        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabPolicy">السياسات</button></li>
-      </ul>
-      <div class="tab-content">
-        <div class="tab-pane fade show active" id="tabCompany">
-          <div class="mb-2"><label class="form-label">اسم الشركة</label><input id="setCompany" class="form-control"></div>
-          <div class="row g-2">
-            <div class="col-6"><label class="form-label">هاتف الدعم</label><input id="setPhone" class="form-control"></div>
-            <div class="col-6"><label class="form-label">عنوان مختصر</label><input id="setAddress" class="form-control"></div>
-          </div>
-          <div class="mt-3 d-flex justify-content-end"><button id="btnSaveCompany" class="btn btn-primary">حفظ</button></div>
-        </div>
-        <div class="tab-pane fade" id="tabTheme">
-          <div class="row g-3">
-            <div class="col-6"><label class="form-label">اللون الأساسي</label><input id="setPrimary" type="color" class="form-control form-control-color" value="#f97316"></div>
-            <div class="col-6"><label class="form-label">الخط</label>
-              <select id="setFont" class="form-select"><option value="Tajawal">Tajawal</option><option value="Cairo">Cairo</option></select>
-            </div>
-          </div>
-          <div class="mt-3 d-flex justify-content-end"><button id="btnSaveTheme" class="btn btn-primary">تطبيق</button></div>
-        </div>
-        <div class="tab-pane fade" id="tabPolicy">
-          <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="polAddr"><label class="form-check-label" for="polAddr">إلزام العنوان التفصيلي</label></div>
-          <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="polNotes"><label class="form-check-label" for="polNotes">إلزام تفاصيل الطلب</label></div>
-          <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="polPhoto"><label class="form-check-label" for="polPhoto">إلزام صورة واحدة على الأقل</label></div>
-          <hr>
-          <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="polWA"><label class="form-check-label" for="polWA">تفعيل إشعارات واتساب</label></div>
-          <div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="polTG"><label class="form-check-label" for="polTG">تفعيل إشعارات تليجرام</label></div>
-          <div class="mt-3 d-flex justify-content-end"><button id="btnSavePolicy" class="btn btn-primary">حفظ السياسات</button></div>
-        </div>
-      </div>
+      <div class="mb-2"><label class="form-label">اسم العميل</label><input id="c_name" class="form-control"></div>
+      <div class="mb-2"><label class="form-label">هاتف</label><input id="c_phone" class="form-control" placeholder="0100 000 0000"></div>
+      <div class="mb-2"><label class="form-label">العنوان</label><input id="c_addr" class="form-control"></div>
+      <hr>
+      <div class="mb-2"><label class="form-label">نوع الجهاز</label><input id="t_device" class="form-control"></div>
+      <div class="mb-2"><label class="form-label">مشكلة / وصف</label><textarea id="t_problem" class="form-control" rows="2"></textarea></div>
+      <div class="mb-2"><label class="form-label">المهندس</label><select id="t_tech" class="form-select"></select></div>
+      <div class="d-grid mt-3"><button id="btnCreateAssign" class="btn btn-primary"><i class="fa-solid fa-paper-plane me-1"></i> إنشاء + إسناد + إرسال</button></div>
     </div>
   </div>
 
-  <!-- Libs -->
+  <!-- Settings Offcanvas (كما لديك) ... -->
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
@@ -171,79 +125,193 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <script>
-    // =============== API CONFIG ===============
-    const API_BASE = 'https://script.google.com/macros/s/AKfycbwBBfXb1CQKk5rYljkT3V89DLXSLdTTTHQGe39MJSw/dev'; // <-- رابطك
-    const API_KEY  = '1W1UhrA7G7Df1HbVlyZ1Sh9tVNtD-E6HhW7yWQ6QkCw1ilg4RvIx5Y26Z'; // ضع نفس القيمة من Script Properties
+    // ===== API CONFIG =====
+    const API_BASE = 'YOUR_SCRIPT_DEPLOYMENT_URL/exec';
+    const urlKey = new URLSearchParams(location.search).get('key');
+    if (urlKey) localStorage.setItem('API_KEY', urlKey);
+    const API_KEY = localStorage.getItem('API_KEY') || '';
+    if (!API_KEY) alert('⚠️ أضف ?key=YOUR_API_KEY أول مرة لحفظه محليًا');
 
-    // =============== Helpers ===============
-    const $ = (s)=> document.querySelector(s);
+    // ===== Helpers =====
+    const $$ = (s)=> document.querySelector(s);
     let dt; let ALL = []; let TECHS = [];
-    function statusPill(s){ if(s==='in_progress')return '<span class="pill pill-inp">قيد التنفيذ</span>'; if(s==='done')return '<span class="pill pill-done">مكتمل</span>'; if(s==='cancelled')return '<span class="pill pill-cancel">ملغي</span>'; return '<span class="pill pill-new">جديد</span>'; }
 
-    // =============== API Calls ===============
-    async function apiGET(url){ const r = await fetch(url); const j = await r.json(); if(!j.ok) throw new Error(j.error||'API error'); return j; }
-    async function apiPOST(body){ const r = await fetch(API_BASE, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(Object.assign({key:API_KEY}, body))}); const j = await r.json(); if(!j.ok) throw new Error(j.error||'API error'); return j; }
+    function statusPill(s){
+      if(s==='in_progress')return '<span class="pill pill-inp">قيد التنفيذ</span>';
+      if(s==='done')return '<span class="pill pill-done">مكتمل</span>';
+      if(s==='cancelled')return '<span class="pill pill-cancel">ملغي</span>';
+      return '<span class="pill pill-new">جديد</span>';
+    }
+    async function apiGET(url){
+      try{ const r = await fetch(url); const j = await r.json(); if(!j.ok) throw new Error(j.error||'API error'); return j; }
+      catch(e){
+        // JSONP fallback
+        return new Promise((resolve,reject)=>{
+          const cb='cb_'+Date.now(); const s=document.createElement('script');
+          s.src = url + (url.includes('?')?'&':'?') + 'callback='+cb;
+          window[cb] = (data)=>{ resolve(data); s.remove(); delete window[cb]; };
+          s.onerror = reject; document.body.appendChild(s);
+        });
+      }
+    }
+    async function apiPOST(body){
+      const r = await fetch(API_BASE, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(Object.assign({key:API_KEY}, body))});
+      const j = await r.json(); if(!j.ok) throw new Error(j.error||'API error'); return j;
+    }
 
     async function fetchTickets(){
       const j = await apiGET(`${API_BASE}?fn=listAll&key=${encodeURIComponent(API_KEY)}`);
-      return (j.data||[]).map(t=>({ id:t.ticket_id, customer:t.customer_name, tech:t.assigned_to||'', status:t.status||'new', date:t.opened_at||'', dep:Number(t.deposit||0), tot:Number(t.total||0), notes:t.order_notes||'', images:(t.device_images||'') }));
+      return (j.data||[]).map(t=>({
+        id:t.ticket_id, customer:t.customer_name, tech:t.assigned_to||'',
+        status:t.status||'new', date:(t.opened_at||''), dep:+(t.deposit||0),
+        tot:+(t.total||0), notes:t.order_notes||'', images:(t.device_images||'')
+      }));
     }
-    async function fetchTechs(){ const j = await apiGET(`${API_BASE}?fn=listTechs&key=${encodeURIComponent(API_KEY)}`); return (j.data||[]).map(x=> x.name).filter(Boolean); }
+    async function fetchTechs(){
+      const j = await apiGET(`${API_BASE}?fn=listTechs&key=${encodeURIComponent(API_KEY)}`);
+      return (j.data||[]); // [{tech_id,name,phone}]
+    }
     async function assignTicket(payload){ return apiPOST({ fn:'assignTicket', payload }); }
+    async function addCustomer(payload){ return apiPOST({ fn:'addCustomer', payload }); }
+    async function createTicketAndAssign(payload){ return apiPOST({ fn:'createTicketAndAssign', payload }); }
     async function saveSettings(payload){ return apiPOST({ fn:'saveSettings', payload }); }
     async function listSettings(){ const j = await apiGET(`${API_BASE}?fn=listSettings&key=${encodeURIComponent(API_KEY)}`); return j.data||{}; }
+    async function upsertCustomersBulk(rows){ return apiPOST({ fn:'upsertCustomersBulk', payload:{ rows } }); }
 
-    // =============== UI Fill ===============
-    function fillTechFilters(){ const sel=$('#fltTech'); sel.innerHTML=''; sel.insertAdjacentHTML('beforeend','<option value="">كل المهندسين</option>'); TECHS.forEach(n=> sel.insertAdjacentHTML('beforeend',`<option>${n}</option>`)); const s=$('#as_engineer'); s.innerHTML=''; TECHS.forEach(n=> s.insertAdjacentHTML('beforeend',`<option>${n}</option>`)); }
+    function fillTechFilters(){
+      const sel=$$('#fltTech'); sel.innerHTML='';
+      sel.insertAdjacentHTML('beforeend','<option value="">كل المهندسين</option>');
+      TECHS.forEach(t=> sel.insertAdjacentHTML('beforeend',`<option value="${t.name}">${t.name}</option>`));
 
-    function refreshTable(rows){ if(dt){ dt.destroy(); $('#tbl tbody').innerHTML=''; }
-      const tb = $('#tbl tbody'); rows.forEach(r=>{ const imgs = (r.images||'').split('\n').filter(Boolean); const photos = imgs.length?`<a href="${imgs[0]}" target="_blank">${imgs.length} صورة</a>`:'—'; tb.insertAdjacentHTML('beforeend',`<tr>
-        <td>${r.id}</td><td>${r.customer||''}</td><td>${r.tech||''}</td><td>${statusPill(r.status)}</td><td>${r.date||''}</td><td>${r.dep||0}</td><td>${r.tot||0}</td><td>${photos}</td>
-        <td><button class="btn btn-sm btn-outline-primary" onclick="openAssign('${r.id}')">إسناد</button></td>
-        <td class="text-nowrap"><button class="btn btn-sm btn-outline-secondary" onclick="copyLink('${r.id}')">نسخ رابط</button></td></tr>`); });
-      dt = new DataTable('#tbl', { language:{ url:'https://cdn.datatables.net/plug-ins/1.13.6/i18n/ar.json' }, pageLength:10 });
-      // KPIs
-      $('#kpiTotal').textContent = rows.length;
-      $('#kpiInProg').textContent = rows.filter(t=>t.status==='in_progress').length;
-      $('#kpiDone').textContent   = rows.filter(t=>t.status==='done').length;
-      const month = new Date().toISOString().slice(0,7); const rev = rows.filter(t=> (t.date||'').startsWith(month)).reduce((a,b)=> a + (Number(b.tot)||0), 0); $('#kpiRevenue').textContent = rev.toLocaleString('ar-EG') + ' ج';
+      const s=$$('#as_engineer'); if(s){ s.innerHTML=''; TECHS.forEach(t=> s.insertAdjacentHTML('beforeend',`<option value="${t.tech_id}">${t.name}</option>`)); }
+      const s2=$$('#t_tech'); if(s2){ s2.innerHTML=''; TECHS.forEach(t=> s2.insertAdjacentHTML('beforeend',`<option value="${t.tech_id}">${t.name}</option>`)); }
     }
 
-    function applyFilters(){ const q=($('#q').value||'').toLowerCase(); const te=$('#fltTech').value; const st=$('#fltStatus').value; const f=$('#from').value; const t=$('#to').value; const rows = ALL.filter(r=>{ let ok=true; if(q) ok = ok && (`${r.id} ${r.customer} ${r.tech} ${r.notes}`.toLowerCase().includes(q)); if(te) ok = ok && r.tech===te; if(st) ok = ok && r.status===st; if(f) ok = ok && new Date(r.date)>=new Date(f); if(t) ok = ok && new Date(r.date)<=new Date(t+'T23:59:59'); return ok; }); refreshTable(rows); }
+    function refreshTable(rows){
+      if (dt){ dt.destroy(); $$('#tbl tbody').innerHTML=''; }
+      const tb = $$('#tbl tbody');
+      rows.forEach(r=>{
+        const imgs = (r.images||'').split('\n').filter(Boolean);
+        const photos = imgs.length?`<a href="${imgs[0]}" target="_blank" rel="noopener">${imgs.length} صورة</a>`:'—';
+        tb.insertAdjacentHTML('beforeend',`<tr>
+          <td>${r.id}</td><td>${r.customer||''}</td><td>${r.tech||''}</td>
+          <td>${statusPill(r.status)}</td><td>${r.date||''}</td>
+          <td>${r.dep||0}</td><td>${r.tot||0}</td><td>${photos}</td>
+          <td><button class="btn btn-sm btn-outline-primary" onclick="openAssign('${r.id}')">إسناد</button></td>
+          <td class="text-nowrap">
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-outline-secondary" onclick="copyLink('${r.id}')">نسخ رابط</button>
+              <button class="btn btn-outline-info" onclick="setStatus('${r.id}','in_progress')">قيد التنفيذ</button>
+              <button class="btn btn-outline-danger" onclick="setStatus('${r.id}','cancelled')">إلغاء</button>
+            </div>
+          </td>
+        </tr>`);
+      });
+      dt = $('#tbl').DataTable({ language:{ url:'https://cdn.datatables.net/plug-ins/1.13.6/i18n/ar.json' }, pageLength:10 });
+      // KPIs
+      $$('#kpiTotal').textContent = rows.length;
+      $$('#kpiInProg').textContent = rows.filter(t=>t.status==='in_progress').length;
+      $$('#kpiDone').textContent   = rows.filter(t=>t.status==='done').length;
+      const month = new Date().toISOString().slice(0,7);
+      const rev = rows.filter(t=> (t.date||'').slice(0,7)===month).reduce((a,b)=> a + (+b.tot||0), 0);
+      $$('#kpiRevenue').textContent = rev.toLocaleString('ar-EG') + ' ج';
+    }
+    function applyFilters(){
+      const q=($$('#q').value||'').toLowerCase();
+      const te=$$('#fltTech').value; const st=$$('#fltStatus').value;
+      const f=$$('#from').value; const t=$$('#to').value;
+      const rows = ALL.filter(r=>{
+        let ok=true;
+        if(q) ok = ok && (`${r.id} ${r.customer} ${r.tech} ${r.notes}`.toLowerCase().includes(q));
+        if(te) ok = ok && r.tech===te;
+        if(st) ok = ok && r.status===st;
+        if(f) ok = ok && new Date(r.date)>=new Date(f);
+        if(t) ok = ok && new Date(r.date)<=new Date(t+'T23:59:59');
+        return ok;
+      });
+      refreshTable(rows);
+    }
 
-    // =============== Assign ===============
-    window.openAssign = (id)=>{ $('#as_id').value=id; new bootstrap.Offcanvas('#offAssign').show(); };
-    $('#btnAssignNow').addEventListener('click', async ()=>{
-      const ticket_id = $('#as_id').value; const engineer = $('#as_engineer').value; const phone = $('#as_phone').value.trim(); const summary = $('#as_summary').value.trim();
-      try{ await assignTicket({ ticket_id, engineer, phone, summary }); alert('تم الإسناد وإرسال الإشعار'); await reloadAll(); bootstrap.Offcanvas.getInstance('#offAssign').hide(); }catch(e){ alert('تعذر الإسناد: '+e.message); }
+    // actions
+    window.openAssign = (id)=>{ $$('#as_id').value=id; new bootstrap.Offcanvas('#offAssign').show(); };
+    async function setStatus(ticket_id,status){
+      try{ await apiPOST({ fn:'updateTicket', payload:{ ticket_id, status }}); alert('تم تحديث الحالة'); await reloadAll(); }
+      catch(e){ alert('تعذر تحديث الحالة: '+e.message); }
+    }
+    $$('#btnAssignNow')?.addEventListener('click', async ()=>{
+      const ticket_id=$$('#as_id').value;
+      const engineer = $$('#as_engineer').value; // tech_id
+      const phone = $$('#as_phone').value.trim();
+      const summary = $$('#as_summary').value.trim();
+      try{ await assignTicket({ ticket_id, engineer, phone, summary }); alert('تم الإسناد'); await reloadAll(); bootstrap.Offcanvas.getInstance('#offAssign').hide(); }
+      catch(e){ alert('تعذر الإسناد: '+e.message); }
     });
 
-    // =============== Settings ===============
-    function applyThemeFromSettings(st){ if(st.PRIMARY_COLOR){ document.documentElement.style.setProperty('--primary', st.PRIMARY_COLOR); } if(st.FONT_FAMILY){ document.body.style.fontFamily = `${st.FONT_FAMILY}, system-ui, -apple-system, Segoe UI, Roboto, Arial`; } if(st.COMPANY_NAME){ $('#brandName').textContent = st.COMPANY_NAME; $('#setCompany').value = st.COMPANY_NAME; } $('#setPhone').value = st.SUPPORT_PHONE||''; $('#setAddress').value = st.SUPPORT_ADDR||''; $('#setPrimary').value = st.PRIMARY_COLOR||'#f97316'; $('#setFont').value = st.FONT_FAMILY||'Tajawal'; $('#polAddr').checked = String(st.REQUIRE_ADDRESS_DETAIL||'true').toLowerCase()==='true'; $('#polNotes').checked = String(st.REQUIRE_NOTES||'true').toLowerCase()==='true'; $('#polPhoto').checked = String(st.REQUIRE_PHOTO||'false').toLowerCase()==='true'; $('#polWA').checked = String(st.NOTIFY_WA||'true').toLowerCase()==='true'; $('#polTG').checked = String(st.NOTIFY_TG||'false').toLowerCase()==='true'; }
+    // new + assign + WA
+    $$('#btnCreateAssign')?.addEventListener('click', async ()=>{
+      const customer_name=$$('#c_name').value.trim();
+      const phone=$$('#c_phone').value.trim();
+      const address=$$('#c_addr').value.trim();
+      const device_type=$$('#t_device').value.trim();
+      const problem_desc=$$('#t_problem').value.trim();
+      const tech_id=$$('#t_tech').value;
+      if (!customer_name || !phone || !tech_id){ alert('أكمل الاسم/الهاتف/المهندس'); return; }
+      try{
+        await addCustomer({ name: customer_name, phone, address });
+        const res = await createTicketAndAssign({
+          customer_name, phone, address, device_type, problem_desc, tech_id,
+          engineer_base: location.origin + location.pathname.replace(/\/[^\/]*$/,'/') + 'engineer-dashboard.html',
+          api_key_for_link: API_KEY // ⚠️ مؤقتًا
+        });
+        // افتح واتساب محليًا (اختياري)
+        const tech = TECHS.find(t=> String(t.tech_id)===String(tech_id));
+        if (tech?.phone){
+          const msg = `تذكرة جديدة #${res.ticket_id}\nعميل: ${customer_name}\nجهاز: ${device_type}\n${problem_desc}\n${res.link}`;
+          const href = `https://wa.me/${String(tech.phone).replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`;
+          window.open(href, '_blank');
+        }
+        alert('تم الإنشاء والإسناد');
+        await reloadAll();
+        bootstrap.Offcanvas.getInstance('#offNew').hide();
+      }catch(e){ alert('تعذر العملية: '+e.message); }
+    });
 
-    $('#btnSaveCompany').addEventListener('click', async ()=>{ try{ await saveSettings({ COMPANY_NAME: $('#setCompany').value.trim(), SUPPORT_PHONE: $('#setPhone').value.trim(), SUPPORT_ADDR: $('#setAddress').value.trim() }); alert('تم الحفظ'); await loadSettings(); }catch(e){ alert('تعذر الحفظ'); } });
-    $('#btnSaveTheme').addEventListener('click', async ()=>{ try{ await saveSettings({ PRIMARY_COLOR: $('#setPrimary').value, FONT_FAMILY: $('#setFont').value }); alert('تم تطبيق المظهر'); await loadSettings(); }catch(e){ alert('تعذر الحفظ'); } });
-    $('#btnSavePolicy').addEventListener('click', async ()=>{ try{ await saveSettings({ REQUIRE_ADDRESS_DETAIL: String($('#polAddr').checked), REQUIRE_NOTES: String($('#polNotes').checked), REQUIRE_PHOTO: String($('#polPhoto').checked), NOTIFY_WA: String($('#polWA').checked), NOTIFY_TG: String($('#polTG').checked) }); alert('تم حفظ السياسات'); }catch(e){ alert('تعذر الحفظ'); } });
+    // settings
+    async function loadSettings(){ try{ const st = await listSettings(); if(st.PRIMARY_COLOR){ document.documentElement.style.setProperty('--primary', st.PRIMARY_COLOR); } if(st.FONT_FAMILY){ document.body.style.fontFamily = `${st.FONT_FAMILY}, system-ui, -apple-system, Segoe UI, Roboto, Arial`; } $$('#brandName').textContent = st.COMPANY_NAME||'لوحة إدارة الصيانة'; }catch(e){} }
 
-    // =============== Export ===============
+    // import customers
+    document.getElementById('xlsCustomers').addEventListener('change', async (e)=>{
+      const file = e.target.files[0]; if (!file) return;
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data, {type:'array'});
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet, {defval:''});
+      const rows = json.map(r=> ({ name:r.name||r['الاسم']||'', phone:r.phone||r['الهاتف']||'', address:r.address||r['العنوان']||'' })).filter(x=> x.phone);
+      if (!rows.length){ alert('لا توجد صفوف صالحة'); return; }
+      try{ const res = await upsertCustomersBulk(rows); alert(`تم استيراد/تحديث ${res.count||rows.length} عميلًا`); }catch(err){ alert('فشل الاستيراد: '+err.message); }
+    });
+
+    // export
     function exportCSV(rows){ const header=['id','customer','tech','status','date','dep','tot','notes']; const csv=[header.join(',')].concat(rows.map(r=> header.map(h=> JSON.stringify(r[h]??'')).join(','))).join('\n'); const blob=new Blob([csv], {type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='tickets.csv'; a.click(); URL.revokeObjectURL(url); }
     function exportXLSX(rows){ const ws=XLSX.utils.json_to_sheet(rows); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Tickets'); XLSX.writeFile(wb, 'tickets.xlsx'); }
-    $('#btnExportCSV').onclick = ()=> exportCSV(ALL); $('#btnExportXLSX').onclick = ()=> exportXLSX(ALL);
+    document.getElementById('btnExportCSV').onclick = ()=> exportCSV(ALL);
+    document.getElementById('btnExportXLSX').onclick = ()=> exportXLSX(ALL);
 
-    // =============== Utils ===============
-    window.copyLink = (id)=>{ navigator.clipboard.writeText(location.href.split('#')[0]); alert('تم نسخ رابط الصفحة.'); };
-
-    async function loadSettings(){ try{ const st = await listSettings(); applyThemeFromSettings(st); }catch(e){ console.warn('settings error', e); } }
+    // utils
+    window.copyLink = (id)=>{
+      const base = location.href.split('#')[0].split('?')[0];
+      const url  = `${base}?ticket=${encodeURIComponent(id)}`;
+      navigator.clipboard.writeText(url); alert('تم نسخ رابط التذكرة.');
+    };
     async function reloadAll(){ ALL = await fetchTickets(); refreshTable(ALL); }
 
-    // =============== Init ===============
     document.addEventListener('DOMContentLoaded', async ()=>{
       await loadSettings();
       try{ TECHS = await fetchTechs(); }catch(e){ TECHS=[]; }
       fillTechFilters();
       await reloadAll();
-      $('#btnSearch').addEventListener('click', applyFilters);
-      $('#btnReset').addEventListener('click', async ()=>{ $('#q').value=''; $('#fltTech').value=''; $('#fltStatus').value=''; $('#from').value=''; $('#to').value=''; await reloadAll(); });
+      $$('#btnSearch').addEventListener('click', applyFilters);
+      $$('#btnReset').addEventListener('click', async ()=>{ $$('#q').value=''; $$('#fltTech').value=''; $$('#fltStatus').value=''; $$('#from').value=''; $$('#to').value=''; await reloadAll(); });
     });
   </script>
 </body>
