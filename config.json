@@ -1,6 +1,6 @@
 {
-  "API_BASE": "https://script.google.com/macros/s/AKfycbw1A4jk9Bec-3w1cgR1z_ZJZgvK_7vKBxVPeF_mwkkTQstQbeGhKPzsB501Kz6I4lo/exec",
-  "API_KEY": "f642937d-fb1",
+  "API_BASE": "https://script.google.com/macros/s/AKfycbw5JAAzQciOSl2z0XtKG5bqk2JkifVPLMMrPou2Ns0xXeOehE0-12z3u0qTdgXxIFwI/exec",
+  "API_KEY": "  f642937d-fb1",
   "COMPANY_NAME": "مصر تكنولوجى",
   "PRIMARY_COLOR": "#f97316",
   "FONT_FAMILY": "Tajawal",
@@ -16,6 +16,6 @@
     "WHATSAPP_PHONE": "201117949334",
     "WHATSAPP_APIKEY": "1794612",
     "TELEGRAM_BOT_TOKEN": "8464174286:AAE5Iz3IJAPjNvzjzpMwVyqTON3vXN33BCg",
-    "TELEGRAM_CHAT_ID": ""
+    "TELEGRAM_CHAT_ID": "6818490171"
   }
 }
