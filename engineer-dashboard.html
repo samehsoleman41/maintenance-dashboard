@@ -15,10 +15,12 @@
     .pill-new{ background:#fff4ea; color:var(--primary) }
     .pill-inp{ background:#eaf6ff; color:#0ea5e9 }
     .pill-done{ background:#eafaf0; color:#16a34a }
-    .ticket-card:hover{ transform:translateY(-2px); transition:.2s }
-    .thumb{ width:70px; height:70px; object-fit:cover; border-radius:.7rem; border:1px solid #eee }
+    .ticket-card{ transition:.2s }
+    .ticket-card:hover{ transform:translateY(-2px) }
+    .thumb{ width:78px; height:78px; object-fit:cover; border-radius:.7rem; border:1px solid #eee }
     .form-control, .form-select{ border-radius:.8rem }
     .floating-add{ position:fixed; inset-inline-end:16px; inset-block-end:16px; z-index:999 }
+    .badge-overdue{ background:#dc2626 }
   </style>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#f97316">
@@ -31,6 +33,10 @@
         <span>لوحة المهندس</span>
         <span class="mx-2">•</span>
         <span class="fw-bold" id="engineerNameShow">المهندس</span>
+      </div>
+      <div class="d-flex gap-2">
+        <button id="btnRefresh" class="btn btn-light btn-sm"><i class="fa-solid fa-rotate"></i></button>
+        <button id="btnShareLink" class="btn btn-light btn-sm"><i class="fa-solid fa-link"></i></button>
       </div>
     </div>
   </nav>
@@ -71,7 +77,7 @@
     <div id="empty" class="text-center text-muted py-5 d-none"><i class="fa-regular fa-face-grin-beam-sweat fa-2x mb-3"></i><div>لا توجد تذاكر مطابقة الآن</div></div>
   </div>
 
-  <button class="btn btn-primary rounded-pill shadow floating-add" id="btnQuick"><i class="fa-solid fa-bolt me-1"></i> حفظ التغييرات الجارية</button>
+  <button class="btn btn-primary rounded-pill shadow floating-add" id="btnQuick"><i class="fa-solid fa-floppy-disk me-1"></i> حفظ التغييرات</button>
 
   <div class="modal fade" id="mdl" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -84,15 +90,15 @@
             <div class="col-md-4"><label class="form-label">الهاتف</label>
               <div class="input-group">
                 <input id="f_phone" class="form-control" disabled />
-                <a id="f_whatsapp" class="btn btn-success" target="_blank"><i class="fa-brands fa-whatsapp"></i></a>
-                <a id="f_call" class="btn btn-outline-secondary" target="_blank"><i class="fa-solid fa-phone"></i></a>
+                <a id="f_whatsapp" class="btn btn-success" target="_blank" title="واتساب"><i class="fa-brands fa-whatsapp"></i></a>
+                <a id="f_call" class="btn btn-outline-secondary" target="_blank" title="اتصال"><i class="fa-solid fa-phone"></i></a>
               </div>
             </div>
             <div class="col-12">
               <label class="form-label">العنوان بالتفصيل</label>
               <div class="input-group">
                 <textarea id="f_addr_detail" class="form-control" rows="2" placeholder="مثال: الدور الثالث شقة 12..."></textarea>
-                <a id="btnMap" class="btn btn-outline-success" target="_blank"><i class="fa-solid fa-map-location-dot"></i></a>
+                <a id="btnMap" class="btn btn-outline-success" target="_blank" title="الموقع"><i class="fa-solid fa-map-location-dot"></i></a>
               </div>
             </div>
             <div class="col-6 col-md-3"><label class="form-label">العربون</label><input id="f_dep" type="number" class="form-control" /></div>
@@ -102,16 +108,22 @@
           <div class="mt-3">
             <div class="d-flex align-items-center justify-content-between">
               <div class="fw-semibold">قطع مسحوبة</div>
-              <button class="btn btn-sm btn-outline-primary" id="btnAddPart"><i class="fa-solid fa-plus"></i> إضافة قطعة</button>
+              <div class="d-flex gap-2">
+                <label class="btn btn-sm btn-outline-secondary mb-0">
+                  <i class="fa-solid fa-camera me-1"></i> صورة قطعة
+                  <input id="part_photo_picker" type="file" accept="image/*" capture="environment" hidden />
+                </label>
+                <button class="btn btn-sm btn-outline-primary" id="btnAddPart"><i class="fa-solid fa-plus"></i> إضافة قطعة</button>
+              </div>
             </div>
             <div id="parts" class="mt-2"></div>
           </div>
           <div class="mt-3">
-            <div class="fw-semibold">صور الزيارة</div>
+            <div class="fw-semibold mb-1">صور الزيارة</div>
             <div class="row g-2 align-items-center mt-1">
               <div class="col-auto">
                 <label class="btn btn-outline-secondary mb-0">
-                  <i class="fa-solid fa-camera me-1"></i> رفع صور/فتح الكاميرا
+                  <i class="fa-solid fa-camera me-1"></i> فتح الكاميرا/اختيار صور
                   <input id="f_photos" type="file" accept="image/*" capture="environment" multiple hidden />
                 </label>
               </div>
@@ -130,7 +142,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-\
 // ===== الإعدادات العامة: قراءة config.json + دعم ?key= للتخزين المحلي =====
 window.APP_CONFIG = {
   API_BASE: '',
@@ -156,166 +167,281 @@ window.APP_CONFIG = {
       }
       if (window.APP_CONFIG.PRIMARY_COLOR) document.documentElement.style.setProperty('--primary', window.APP_CONFIG.PRIMARY_COLOR);
       if (window.APP_CONFIG.FONT_FAMILY) document.body.style.fontFamily = window.APP_CONFIG.FONT_FAMILY + ', system-ui, -apple-system, Segoe UI, Roboto, Arial';
-      if (window.APP_CONFIG.COMPANY_NAME) {
-        const el = document.getElementById('brandName');
-        if (el) el.textContent = window.APP_CONFIG.COMPANY_NAME;
-      }
+      document.getElementById('engineerNameShow').textContent = (new URL(location.href)).searchParams.get('engineer') || 'المهندس';
       if (typeof window.__app_boot === 'function') window.__app_boot();
     });
 })();
 
+// ===== Utilities =====
+let engineer = 'المهندس';
+let tickets = [];
+let current = null;
+const $ = s=> document.querySelector(s);
+const $el = (tag, attrs={}, html='')=>{ const e=document.createElement(tag); Object.entries(attrs).forEach(([k,v])=> e.setAttribute(k,v)); if(html) e.innerHTML=html; return e; };
+const getParam = (name)=> new URL(location.href).searchParams.get(name);
+const normPhone = (num)=> (num||'').replace(/\D/g,'');
+const waLink = (num, txt='')=>{ const n=normPhone(num); if(!n) return '#'; const cc=(APP_CONFIG.DEFAULT_COUNTRY_CODE||'').replace(/\D/g,''); return `https://wa.me/${cc?cc:''}${n}?text=${encodeURIComponent(txt)}`; };
+const telLink = (num)=>{ const n=normPhone(num); return n?`tel:${n}`:'#'; };
+const gmaps = (addr)=> `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr||'')}`;
 
-    let engineer = 'المهندس';
-    let tickets = [];
-    let current = null;
-    const $ = s=> document.querySelector(s);
-    const $el = (tag, attrs={}, html='')=>{ const e=document.createElement(tag); Object.entries(attrs).forEach(([k,v])=> e.setAttribute(k,v)); if(html) e.innerHTML=html; return e; };
-    const getParam = (name)=> new URL(location.href).searchParams.get(name);
-    const waLink = (num, txt='')=>{ const n=(num||'').replace(/\D/g,''); return n?`https://wa.me/${n}?text=${encodeURIComponent(txt)}`:'#'; };
-    const telLink = (num)=>{ const n=(num||'').replace(/\D/g,''); return n?`tel:${n}`:'#'; };
-    const gmaps = (addr)=> `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr||'')}`;
+async function apiGET(url){ const r=await fetch(url); const j=await r.json(); if(!j.ok) throw new Error(j.error||'API error'); return j; }
+async function apiPOST(body){ const r=await fetch(APP_CONFIG.API_BASE, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(Object.assign({key:APP_CONFIG.API_KEY}, body)) }); const j=await r.json(); if(!j.ok) throw new Error(j.error||'API error'); return j; }
 
-    async function apiGET(url){ const r=await fetch(url); const j=await r.json(); if(!j.ok) throw new Error(j.error||'API error'); return j; }
-    async function apiPOST(body){ const r=await fetch(APP_CONFIG.API_BASE, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(Object.assign({key:APP_CONFIG.API_KEY}, body)) }); const j=await r.json(); if(!j.ok) throw new Error(j.error||'API error'); return j; }
+async function fetchTicketsFromServer(engineer){
+  const url = `${APP_CONFIG.API_BASE}?fn=listTickets&engineer=${encodeURIComponent(engineer)}&key=${encodeURIComponent(APP_CONFIG.API_KEY)}`;
+  const j = await apiGET(url);
+  return (j.data||[]).map(t => ({
+    id: t.ticket_id,
+    customer: t.customer_name,
+    phone: t.phone,
+    address: t.address,
+    device: t.device_type,
+    problem: t.problem_desc,
+    status: t.status || 'new',
+    assigned_to: t.assigned_to,
+    date: t.opened_at || '',
+    dep: Number(t.deposit||0),
+    tot: Number(t.total||0),
+    addr_detail: t.address_detail||'',
+    notes: t.order_notes||'',
+    images: (t.device_images||''),
+    parts: [],
+    photos: []
+  }));
+}
 
-    async function fetchTicketsFromServer(engineer){
-      const url = `${APP_CONFIG.API_BASE}?fn=listTickets&engineer=${encodeURIComponent(engineer)}&key=${encodeURIComponent(APP_CONFIG.API_KEY)}`;
-      const j = await apiGET(url);
-      return j.data.map(t => ({ id: t.ticket_id, customer: t.customer_name, phone: t.phone, address: t.address, device: t.device_type, problem: t.problem_desc, status: t.status || 'new', assigned_to: t.assigned_to, date: (t.opened_at||''), dep: Number(t.deposit||0), tot: Number(t.total||0), addr_detail: t.address_detail||'', notes: t.order_notes||'', parts: [], photos: [] }));
-    }
+async function apiUpdateTicket(payload){ return apiPOST({ fn:'updateTicket', payload }); }
+async function apiUploadPhotos(payload){ return apiPOST({ fn:'uploadPhotos', payload }); }
 
-    async function apiUpdateTicket(payload){ return apiPOST({ fn:'updateTicket', payload }); }
-    async function apiUploadPhotos(payload){ return apiPOST({ fn:'uploadPhotos', payload }); }
+function statusPill(s){ if (s==='in_progress') return '<span class="pill pill-inp">قيد التنفيذ</span>'; if (s==='done') return '<span class="pill pill-done">مكتمل</span>'; return '<span class="pill pill-new">جديد</span>'; }
 
-    function statusPill(s){ if (s==='in_progress') return '<span class="pill pill-inp">قيد التنفيذ</span>'; if (s==='done') return '<span class="pill pill-done">مكتمل</span>'; return '<span class="pill pill-new">جديد</span>'; }
+function overdueBadge(t){
+  const d = t.date ? new Date(t.date).getTime() : 0;
+  const late = (t.status!=='done' && d && (Date.now()-d)/86400000 >= 3);
+  return late ? '<span class="badge badge-overdue ms-2">متأخرة</span>' : '';
+}
 
-    function ticketCard(t){
-      const col = $el('div', { class:'col-12 col-md-6 col-xl-4' });
-      const card = $el('div', { class:'card p-3 ticket-card' });
-      const overdue = (t.status!=='done' && t.date && (Date.now()-new Date(t.date).getTime())/86400000 >= 3) ? '<span class="badge bg-danger ms-2">متأخرة</span>' : '';
-      card.innerHTML = `
-        <div class="d-flex justify-content-between align-items-start">
-          <div>
-            <div class="fw-semibold">${t.customer}</div>
-            <div class="small text-muted">${t.device||'-'} — ${t.problem||'-'}</div>
-            <div class="small text-muted">${t.address||'-'}</div>
-          </div>
-          <div>${statusPill(t.status)}${overdue}</div>
-        </div>
-        <div class="d-flex gap-2 mt-2">
-          <a class="btn btn-success btn-sm" href="${waLink(t.phone, 'مرحبًا، أنا المهندس المكلف بطلبك.')}"><i class="fa-brands fa-whatsapp me-1"></i> واتساب</a>
-          <a class="btn btn-outline-secondary btn-sm" href="${telLink(t.phone)}"><i class="fa-solid fa-phone me-1"></i> اتصال</a>
-          <a class="btn btn-outline-success btn-sm" href="${gmaps(t.address)}"><i class="fa-solid fa-map-location-dot me-1"></i> خريطة</a>
-          <button class="btn btn-primary btn-sm" onclick="openDetails('${t.id}')"><i class="fa-solid fa-pen me-1"></i> التفاصيل</button>
-          <button class="btn btn-outline-secondary btn-sm" onclick="markInProgress('${t.id}')">بدء</button>
-          <button class="btn btn-outline-success btn-sm" onclick="markDone('${t.id}')">تم</button>
-        </div>`;
-      col.appendChild(card); return col;
-    }
+function ticketCard(t){
+  const col = $el('div', { class:'col-12 col-md-6 col-xl-4' });
+  const card = $el('div', { class:'card p-3 ticket-card' });
+  card.innerHTML = `
+    <div class="d-flex justify-content-between align-items-start">
+      <div>
+        <div class="fw-semibold">${t.customer||'-'}</div>
+        <div class="small text-muted">${t.device||'-'} — ${t.problem||'-'}</div>
+        <div class="small text-muted">${t.address||'-'}</div>
+      </div>
+      <div>${statusPill(t.status)}${overdueBadge(t)}</div>
+    </div>
+    <div class="d-flex flex-wrap gap-2 mt-2">
+      <a class="btn btn-success btn-sm" href="${waLink(t.phone, 'مرحبًا، أنا المهندس المكلف بطلبك.')}" target="_blank"><i class="fa-brands fa-whatsapp me-1"></i> واتساب</a>
+      <a class="btn btn-outline-secondary btn-sm" href="${telLink(t.phone)}"><i class="fa-solid fa-phone me-1"></i> اتصال</a>
+      <a class="btn btn-outline-success btn-sm" href="${gmaps(t.address)}" target="_blank"><i class="fa-solid fa-map-location-dot me-1"></i> خريطة</a>
+      <button class="btn btn-primary btn-sm" data-open="${t.id}"><i class="fa-solid fa-pen me-1"></i> التفاصيل</button>
+      <button class="btn btn-outline-secondary btn-sm" data-start="${t.id}">بدء</button>
+      <button class="btn btn-outline-success btn-sm" data-done="${t.id}">تم</button>
+    </div>`;
+  col.appendChild(card); return col;
+}
 
-    function openDetails(id){
-      current = tickets.find(x=>x.id===id); if (!current) return;
-      $('#f_id').value = current.id; $('#f_customer').value = current.customer; $('#f_phone').value = current.phone||'';
-      $('#f_whatsapp').href = waLink(current.phone, `مرحبًا ${current.customer||''}`);
-      $('#f_call').href = telLink(current.phone);
-      $('#f_addr_detail').value = current.addr_detail||''; $('#f_dep').value = current.dep||0; $('#f_tot').value = current.tot||0; $('#f_notes').value = current.notes||'';
-      $('#btnMap').href = gmaps(`${current.address||''} ${($('#f_addr_detail').value||'')}`.trim());
+function openDetails(id){
+  current = tickets.find(x=>x.id===id); if (!current) return;
+  $('#f_id').value = current.id; $('#f_customer').value = current.customer; $('#f_phone').value = current.phone||'';
+  $('#f_whatsapp').href = waLink(current.phone, `مرحبًا ${current.customer||''}`);
+  $('#f_call').href = telLink(current.phone);
+  $('#f_addr_detail').value = current.addr_detail||''; $('#f_dep').value = current.dep||0; $('#f_tot').value = current.tot||0; $('#f_notes').value = current.notes||'';
+  $('#btnMap').href = gmaps(`${current.address||''} ${($('#f_addr_detail').value||'')}`.trim());
 
-      const parts = $('#parts'); parts.innerHTML='';
-      (current.parts||[]).forEach((p,i)=> parts.appendChild(partRow(i, p.name, p.qty)));
-      const prev = $('#photoPreview'); prev.innerHTML=''; (current.photos||[]).forEach(src=> prev.appendChild(imgThumb(src)));
-      new bootstrap.Modal($('#mdl')).show();
-    }
+  const parts = $('#parts'); parts.innerHTML='';
+  (current.parts||[]).forEach((p)=> parts.appendChild(partRow(p.name, p.qty, p.photo)));
+  const prev = $('#photoPreview'); prev.innerHTML='';
+  (current.images||'').split('\n').filter(Boolean).forEach(u=> prev.appendChild(imgThumb(u)));
+  (current.photos||[]).forEach(src=> prev.appendChild(imgThumb(src)));
 
-    function partRow(i, name='', qty=1){
-      const wrap = $el('div', { class:'row g-2 align-items-center mb-1' });
-      wrap.innerHTML = `<div class="col-7"><input class="form-control" type="text" placeholder="اسم القطعة" value="${name}"></div><div class="col-3"><input type="number" class="form-control" value="${qty}"></div><div class="col-2 d-grid"><button class="btn btn-outline-danger" type="button">حذف</button></div>`;
-      wrap.querySelector('button').onclick = ()=> wrap.remove(); return wrap;
-    }
+  new bootstrap.Modal($('#mdl')).show();
+}
 
-    function onPhotosSelected(e){
-      const prev = $('#photoPreview');
-      [...e.target.files].forEach(file=>{ const r = new FileReader(); r.onload = ()=> prev.appendChild(imgThumb(r.result)); r.readAsDataURL(file); });
-    }
-    function imgThumb(src){ const img=$el('img', { src, class:'thumb' }); return img; }
-    function formHasPhoto(){ return document.querySelectorAll('#photoPreview img').length > 0; }
+function partRow(name='', qty=1, photoSrc=''){
+  const wrap = $el('div', { class:'row g-2 align-items-center mb-1' });
+  wrap.innerHTML = `
+    <div class="col-5"><input class="form-control" type="text" placeholder="اسم القطعة" value="${name}"></div>
+    <div class="col-3"><input type="number" class="form-control" value="${qty}" min="1"></div>
+    <div class="col-2">${photoSrc?`<img src="${photoSrc}" class="thumb">`:''}</div>
+    <div class="col-2 d-grid"><button class="btn btn-outline-danger" type="button">حذف</button></div>`;
+  wrap.querySelector('button').onclick = ()=> wrap.remove();
+  return wrap;
+}
 
-    function validateBeforeSaveOrClose(requirePhoto){
-      const errs = [];
-      const REQ = APP_CONFIG.POLICIES||{};
-      if (String(REQ.REQUIRE_ADDRESS_DETAIL||'true').toLowerCase()==='true' && !$('#f_addr_detail').value.trim()) errs.push('العنوان التفصيلي');
-      if (String(REQ.REQUIRE_NOTES||'true').toLowerCase()==='true' && !$('#f_notes').value.trim()) errs.push('تفاصيل/تشخيص الطلب');
-      if (requirePhoto && String(REQ.REQUIRE_PHOTO||'false').toLowerCase()==='true' && !formHasPhoto()) errs.push('صورة واحدة على الأقل');
-      if (errs.length){ alert('الحقول المطلوبة: '+ errs.join(' + ')); return false; }
-      return true;
-    }
+function onPhotosSelected(e){
+  const prev = $('#photoPreview');
+  [...e.target.files].forEach(file=>{ const r = new FileReader(); r.onload = ()=> compressImage(r.result, 1280, 0.8).then(data=> prev.appendChild(imgThumb(data))); r.readAsDataURL(file); });
+}
+function onPartPhotoSelected(e){
+  const file = e.target.files && e.target.files[0]; if(!file) return;
+  const container = $('#parts');
+  const r = new FileReader(); r.onload = ()=> compressImage(r.result, 1280, 0.8).then(data=> container.appendChild(partRow('',1,data))); r.readAsDataURL(file);
+}
 
-    async function saveTicketDetails(){
-      if (!current) return;
-      if (!validateBeforeSaveOrClose(false)) return;
-      const payload = { ticket_id: current.id, engineer, address_detail: $('#f_addr_detail').value.trim(), deposit: Number($('#f_dep').value||0), total: Number($('#f_tot').value||0), order_notes: $('#f_notes').value.trim(), pulled_parts: partsToText(), markDone: false };
-      let json = await apiUpdateTicket(payload);
-      const photosDataUrls = [...document.querySelectorAll('#photoPreview img')].map(i=> i.src);
-      if (photosDataUrls.length){
-        json = await apiUploadPhotos({ ticket_id: current.id, engineer, customer_name: current.customer, tech_name: engineer, photos: photosDataUrls, parts: [] });
-      }
-      alert('تم الحفظ.');
-      try{ tickets = await fetchTicketsFromServer(engineer); }catch(e){}
-      bootstrap.Modal.getInstance($('#mdl')).hide(); renderList();
-    }
+function imgThumb(src){ const img=$el('img', { src, class:'thumb' }); return img; }
+function formHasPhoto(){ return document.querySelectorAll('#photoPreview img').length > 0; }
 
-    async function markInProgress(id){
-      const t=tickets.find(x=>x.id===id); if(!t) return; current=t;
-      await apiUpdateTicket({ ticket_id:id, engineer, markDone:false });
-      try{ tickets = await fetchTicketsFromServer(engineer); }catch(e){} renderList();
-    }
+function validateBeforeSaveOrClose(requirePhoto){
+  const errs = [];
+  const REQ = APP_CONFIG.POLICIES||{};
+  if (String(REQ.REQUIRE_ADDRESS_DETAIL||'true').toLowerCase()==='true' && !$('#f_addr_detail').value.trim()) errs.push('العنوان التفصيلي');
+  if (String(REQ.REQUIRE_NOTES||'true').toLowerCase()==='true' && !$('#f_notes').value.trim()) errs.push('تفاصيل/تشخيص الطلب');
+  if (requirePhoto && String(REQ.REQUIRE_PHOTO||'false').toLowerCase()==='true' && !formHasPhoto()) errs.push('صورة واحدة على الأقل');
+  if (errs.length){ alert('الحقول المطلوبة: '+ errs.join(' + ')); return false; }
+  return true;
+}
 
-    async function markDone(id){
-      if (!id) return; if (!current) current = tickets.find(x=>x.id===id);
-      if (!validateBeforeSaveOrClose(true)) return;
-      const payload = { ticket_id:id, engineer, markDone:true };
-      const json = await apiUpdateTicket(payload);
-      alert('تم إغلاق التذكرة.');
-      try{ tickets = await fetchTicketsFromServer(engineer); }catch(e){} renderList(); bootstrap.Modal.getInstance($('#mdl'))?.hide();
-    }
+async function saveTicketDetails(){
+  if (!current) return;
+  if (!validateBeforeSaveOrClose(false)) return;
+  // اجمع قطع الغيار + صورها
+  const partsRows = [...document.querySelectorAll('#parts .row')];
+  const parts = partsRows.map(r=>{
+    const name = r.querySelector('input[type="text"]').value.trim();
+    const qty  = Number(r.querySelector('input[type="number"]').value||1);
+    const img  = r.querySelector('img')?.src || '';
+    return name ? { name, qty, dataUrl: img } : null;
+  }).filter(Boolean);
 
-    function partsToText(){
-      const rows = [...document.querySelectorAll('#parts .row')];
-      return rows.map(r=>{
-        const name = r.querySelector('input[type="text"]').value.trim();
-        const qty  = Number(r.querySelector('input[type="number"]').value||1);
-        return name ? `${name} x${qty}` : '';
-      }).filter(Boolean).join('\n');
-    }
+  const payload = {
+    ticket_id: current.id,
+    engineer,
+    address_detail: $('#f_addr_detail').value.trim(),
+    deposit: Number($('#f_dep').value||0),
+    total: Number($('#f_tot').value||0),
+    order_notes: $('#f_notes').value.trim(),
+    pulled_parts: parts.map(p=> `${p.name} x${p.qty}`).join('\n'),
+    markDone: false
+  };
+  await apiUpdateTicket(payload);
 
-    function renderList(){
-      const list = $('#list'); list.innerHTML='';
-      const q = ($('#search').value||'').toLowerCase();
-      const st = $('#fltStatus').value; const from=$('#from').value; const to=$('#to').value;
-      const mine = tickets.filter(t=> t.assigned_to===engineer)
-        .filter(t=> !q || (`${t.id} ${t.customer} ${t.device} ${t.problem}`.toLowerCase().includes(q)))
-        .filter(t=> !st || t.status===st)
-        .filter(t=> !from || new Date(t.date)>=new Date(from))
-        .filter(t=> !to || new Date(t.date)<=new Date(to+'T23:59:59'));
-      $('#kAll').textContent = mine.length;
-      $('#kInp').textContent = mine.filter(x=>x.status==='in_progress').length;
-      $('#kDone').textContent = mine.filter(x=>x.status==='done').length;
-      const todayStr = new Date().toISOString().slice(0,10);
-      $('#kToday').textContent = mine.filter(x=>x.date===todayStr).length;
-      if (!mine.length){ $('#empty').classList.remove('d-none'); return } else { $('#empty').classList.add('d-none'); }
-      mine.forEach(t=> $('#list').appendChild(ticketCard(t)));
-    }
+  // صور
+  const photosDataUrls = [...document.querySelectorAll('#photoPreview img')]
+    .map(i=> i.src)
+    .filter(src=> src.startsWith('data:')); // ارفع الجديدة فقط
 
-    function __app_boot(){
-      engineer = getParam('engineer') || getParam('tech') || engineer;
-      document.getElementById('engineerNameShow').textContent = engineer;
-      ['search','fltStatus','from','to'].forEach(id=> $('#'+id).addEventListener('input', renderList));
-      document.getElementById('f_photos').addEventListener('change', onPhotosSelected);
-      document.getElementById('btnAddPart').addEventListener('click', ()=> document.getElementById('parts').appendChild(partRow(Date.now())) );
-      document.getElementById('btnSave').addEventListener('click', saveTicketDetails);
-      document.getElementById('btnDone').addEventListener('click', ()=> markDone(current?.id));
-      (async()=>{ try{ tickets = await fetchTicketsFromServer(engineer); }catch(e){ tickets=[]; } renderList(); })();
-    }
+  if (photosDataUrls.length || parts.length){
+    await apiUploadPhotos({ ticket_id: current.id, engineer, customer_name: current.customer, tech_name: engineer, photos: photosDataUrls, parts });
+  }
+
+  // حدّث القائمة
+  alert('تم الحفظ.');
+  try{ tickets = await fetchTicketsFromServer(engineer); }catch(e){}
+  bootstrap.Modal.getInstance($('#mdl')).hide();
+  renderList();
+  clearDraft();
+}
+
+async function markInProgress(id){
+  const t=tickets.find(x=>x.id===id); if(!t) return; current=t;
+  await apiUpdateTicket({ ticket_id:id, engineer, status:'in_progress' });
+  try{ tickets = await fetchTicketsFromServer(engineer); }catch(e){}
+  renderList();
+}
+
+async function markDone(id){
+  if (!id) return; if (!current) current = tickets.find(x=>x.id===id);
+  if (!validateBeforeSaveOrClose(true)) return;
+  await apiUpdateTicket({ ticket_id:id, engineer, markDone:true });
+  alert('تم إغلاق التذكرة.');
+  try{ tickets = await fetchTicketsFromServer(engineer); }catch(e){}
+  renderList();
+  bootstrap.Modal.getInstance($('#mdl'))?.hide();
+  clearDraft();
+}
+
+function renderList(){
+  const list = $('#list'); list.innerHTML='';
+  const q = ($('#search').value||'').toLowerCase();
+  const st = $('#fltStatus').value; const from=$('#from').value; const to=$('#to').value;
+  const mine = tickets.filter(t=> !q || (`${t.id} ${t.customer} ${t.device} ${t.problem}`.toLowerCase().includes(q)))
+    .filter(t=> !st || t.status===st)
+    .filter(t=> !from || new Date(t.date)>=new Date(from))
+    .filter(t=> !to || new Date(t.date)<=new Date(to+'T23:59:59'));
+  $('#kAll').textContent = mine.length;
+  $('#kInp').textContent = mine.filter(x=>x.status==='in_progress').length;
+  $('#kDone').textContent = mine.filter(x=>x.status==='done').length;
+  const today = new Date(); const y=today.getFullYear(), m=today.getMonth(), d=today.getDate();
+  const isSameDay = (dt)=>{ const dd=new Date(dt); return dd.getFullYear()===y && dd.getMonth()===m && dd.getDate()===d; };
+  $('#kToday').textContent = mine.filter(x=> x.date && isSameDay(x.date)).length;
+  if (!mine.length){ $('#empty').classList.remove('d-none'); return } else { $('#empty').classList.add('d-none'); }
+  mine.forEach(t=> $('#list').appendChild(ticketCard(t)));
+
+  // Handlers للأزرار داخل الكروت
+  list.querySelectorAll('[data-open]').forEach(btn=> btn.addEventListener('click', ()=> openDetails(btn.getAttribute('data-open'))));
+  list.querySelectorAll('[data-start]').forEach(btn=> btn.addEventListener('click', ()=> markInProgress(btn.getAttribute('data-start'))));
+  list.querySelectorAll('[data-done]').forEach(btn=> btn.addEventListener('click', ()=> markDone(btn.getAttribute('data-done'))));
+}
+
+// ==== ضغط الصور قبل الرفع (تسريع وحجم أقل) ====
+function compressImage(dataUrl, maxSize=1280, quality=0.8){
+  return new Promise((resolve)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const canvas = document.createElement('canvas');
+      let {width, height} = img;
+      if (width>height && width>maxSize){ height = height * (maxSize/width); width = maxSize; }
+      else if (height>=width && height>maxSize){ width = width * (maxSize/height); height = maxSize; }
+      canvas.width = width; canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img,0,0,width,height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.src = dataUrl;
+  });
+}
+
+// ==== حفظ مسودّة محلية + زر "حفظ التغييرات" ==== 
+function saveDraft(){
+  if(!current) return;
+  const draft = {
+    id: current.id,
+    addr_detail: $('#f_addr_detail').value,
+    dep: $('#f_dep').value,
+    tot: $('#f_tot').value,
+    notes: $('#f_notes').value,
+    photos: [...document.querySelectorAll('#photoPreview img')].map(i=> i.src)
+  };
+  localStorage.setItem('draft_'+current.id, JSON.stringify(draft));
+}
+function loadDraft(id){
+  const raw = localStorage.getItem('draft_'+id); if(!raw) return;
+  try{
+    const d=JSON.parse(raw);
+    if(d.addr_detail) $('#f_addr_detail').value = d.addr_detail;
+    if(d.dep) $('#f_dep').value = d.dep;
+    if(d.tot) $('#f_tot').value = d.tot;
+    if(d.notes) $('#f_notes').value = d.notes;
+    if(d.photos && d.photos.length){ const prev=$('#photoPreview'); prev.innerHTML=''; d.photos.forEach(p=> prev.appendChild(imgThumb(p))); }
+  }catch(_){ }
+}
+function clearDraft(){ if(current) localStorage.removeItem('draft_'+current.id); }
+
+// ==== Boot ====
+function __app_boot(){
+  engineer = getParam('engineer') || getParam('tech') || engineer;
+  document.getElementById('engineerNameShow').textContent = engineer;
+  ['search','fltStatus','from','to'].forEach(id=> $('#'+id).addEventListener('input', renderList));
+  document.getElementById('f_photos').addEventListener('change', onPhotosSelected);
+  document.getElementById('part_photo_picker').addEventListener('change', onPartPhotoSelected);
+  document.getElementById('btnAddPart').addEventListener('click', ()=> document.getElementById('parts').appendChild(partRow())) ;
+  document.getElementById('btnSave').addEventListener('click', saveTicketDetails);
+  document.getElementById('btnDone').addEventListener('click', ()=> markDone(current?.id));
+  document.getElementById('btnQuick').addEventListener('click', saveTicketDetails);
+  document.getElementById('btnRefresh').addEventListener('click', async ()=>{ try{ tickets = await fetchTicketsFromServer(engineer); }catch(e){ tickets=[]; } renderList(); });
+  document.getElementById('btnShareLink').addEventListener('click', ()=>{ navigator.clipboard.writeText(location.href.split('#')[0]); alert('تم نسخ رابط الصفحة للمهندس.'); });
+
+  // احفظ مسودّة تلقائيًا أثناء الكتابة
+  ['f_addr_detail','f_dep','f_tot','f_notes'].forEach(id=> document.getElementById(id).addEventListener('input', saveDraft));
+
+  (async()=>{ try{ tickets = await fetchTicketsFromServer(engineer); }catch(e){ tickets=[]; } renderList(); })();
+}
+
+window.__app_boot = __app_boot;
   </script>
 </body>
 </html>
