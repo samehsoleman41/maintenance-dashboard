@@ -445,3 +445,8 @@ window.__app_boot = __app_boot;
   </script>
 </body>
 </html>
+function resetSettings() {
+  localStorage.clear();
+  alert('تم مسح جميع الإعدادات المخزنة محليًا.');
+  location.reload();
+}
