@@ -1,533 +1,313 @@
-# manager-dashboard.html (final)
-
-```html
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>مصر تكنولوجى — لوحة المدير</title>
-  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#f97316">
-  <style>
-    :root { --primary:#f97316; --bg:#faf8f5; --card:#fff; --text:#111 }
-    body { font-family:'Tajawal', system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text) }
-    .navbar { background:var(--primary)!important }
-    .btn-primary { background:var(--primary); border-color:var(--primary) }
-    .btn-primary:hover { filter:brightness(.95) }
-    .card { border:none; border-radius:1rem; box-shadow:0 6px 18px rgba(0,0,0,.06) }
-    .pill{ border-radius:999px; font-size:.75rem; padding:.25rem .6rem; display:inline-block }
-    .pill-new{ background:#fff4ea; color:var(--primary) }
-    .pill-inp{ background:#eaf6ff; color:#0ea5e9 }
-    .pill-done{ background:#eafaf0; color:#16a34a }
-    .pill-cancel{ background:#eee; color:#555 }
-  </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>مصر تكنولوجى — لوحة المدير</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#f97316">
+  <style>
+    :root { --primary:#f97316; --bg:#faf8f5; --card:#fff; --text:#111 }
+    body { font-family:'Tajawal', system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text) }
+    .navbar { background:var(--primary)!important }
+    .btn-primary { background:var(--primary); border-color:var(--primary) }
+    .btn-primary:hover { filter:brightness(.95) }
+    .card { border:none; border-radius:1rem; box-shadow:0 6px 18px rgba(0,0,0,.06) }
+    .pill{ border-radius:999px; font-size:.75rem; padding:.25rem .6rem; display:inline-block }
+    .pill-new{ background:#fff4ea; color:var(--primary) }
+    .pill-inp{ background:#eaf6ff; color:#0ea5e9 }
+    .pill-done{ background:#eafaf0; color:#16a34a }
+    .pill-cancel{ background:#eee; color:#555 }
+  </style>
 </head>
 <body>
-  <nav class="navbar navbar-dark">
-    <div class="container-fluid">
-      <a class="navbar-brand fw-bold" href="#">
-        <i class="fa-solid fa-screwdriver-wrench me-2"></i><span id="brandName">مصر تكنولوجى</span>
-      </a>
-      <div class="d-flex gap-2">
-        <button class="btn btn-light" onclick="document.getElementById('xlsCustomers').click()">
-          <i class="fa-solid fa-file-excel me-1"></i> استيراد عملاء
-        </button>
-        <button class="btn btn-light" onclick="window.print()">
-          <i class="fa-solid fa-print me-1"></i> طباعة
-        </button>
-        <input id="xlsCustomers" type="file" accept=".xlsx,.xls,.csv" hidden>
-      </div>
-    </div>
-  </nav>
+  <nav class="navbar navbar-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="#">
+        <i class="fa-solid fa-screwdriver-wrench me-2"></i><span id="brandName">مصر تكنولوجى</span>
+      </a>
+      <div class="d-flex gap-2">
+        <button class="btn btn-light" onclick="document.getElementById('xlsCustomers').click()">
+          <i class="fa-solid fa-file-excel me-1"></i> استيراد عملاء
+        </button>
+        <button class="btn btn-light" onclick="window.print()">
+          <i class="fa-solid fa-print me-1"></i> طباعة
+        </button>
+        <input id="xlsCustomers" type="file" accept=".xlsx,.xls,.csv" hidden>
+      </div>
+    </div>
+  </nav>
 
-  <div class="container py-4">
-    <div class="row g-3 align-items-end mb-3">
-      <div class="col-md-4">
-        <label class="form-label">بحث</label>
-        <input id="q" class="form-control" placeholder="ابحث باسم العميل / رقم التذكرة / نوع الجهاز" />
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">المهندس</label>
-        <select id="fltTech" class="form-select"></select>
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">الحالة</label>
-        <select id="fltStatus" class="form-select">
-          <option value="">كل الحالات</option>
-          <option value="new">new</option>
-          <option value="in_progress">in_progress</option>
-          <option value="done">done</option>
-          <option value="cancelled">cancelled</option>
-        </select>
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">من</label>
-        <input id="from" type="date" class="form-control" />
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">إلى</label>
-        <input id="to" type="date" class="form-control" />
-      </div>
-    </div>
+  <div class="container py-4">
+    <div class="row g-3 align-items-end mb-3">
+      <div class="col-md-4">
+        <label class="form-label">بحث</label>
+        <input id="q" class="form-control" placeholder="ابحث باسم العميل / رقم التذكرة / نوع الجهاز" />
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">المهندس</label>
+        <select id="fltTech" class="form-select"></select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">الحالة</label>
+        <select id="fltStatus" class="form-select">
+          <option value="">كل الحالات</option>
+          <option value="new">new</option>
+          <option value="in_progress">in_progress</option>
+          <option value="done">done</option>
+          <option value="cancelled">cancelled</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">من</label>
+        <input id="from" type="date" class="form-control" />
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">إلى</label>
+        <input id="to" type="date" class="form-control" />
+      </div>
+    </div>
 
-    <div class="d-flex gap-2 mb-3">
-      <button id="btnSearch" class="btn btn-primary"><i class="fa-solid fa-filter me-1"></i> بحث</button>
-      <button id="btnReset" class="btn btn-outline-secondary"><i class="fa-solid fa-rotate-left me-1"></i> مسح</button>
-      <div class="ms-auto d-flex gap-2">
-        <button id="btnExportCSV" class="btn btn-success"><i class="fa-solid fa-file-csv me-1"></i> CSV</button>
-        <button id="btnExportXLSX" class="btn btn-success"><i class="fa-solid fa-file-excel me-1"></i> Excel</button>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#mdlNew">
-          <i class="fa-solid fa-plus me-1"></i> تذكرة جديدة
-        </button>
-      </div>
-    </div>
+    <div class="d-flex gap-2 mb-3">
+      <button id="btnSearch" class="btn btn-primary"><i class="fa-solid fa-filter me-1"></i> بحث</button>
+      <button id="btnReset" class="btn btn-outline-secondary"><i class="fa-solid fa-rotate-left me-1"></i> مسح</button>
+      <div class="ms-auto d-flex gap-2">
+        <button id="btnExportCSV" class="btn btn-success"><i class="fa-solid fa-file-csv me-1"></i> CSV</button>
+        <button id="btnExportXLSX" class="btn btn-success"><i class="fa-solid fa-file-excel me-1"></i> Excel</button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#mdlNew">
+          <i class="fa-solid fa-plus me-1"></i> تذكرة جديدة
+        </button>
+      </div>
+    </div>
 
-    <div class="row g-3 mb-3">
-      <div class="col-sm-6 col-lg-3"><div class="card p-3 text-white" style="background:var(--primary)"><div class="small opacity-75">إجمالي التذاكر</div><div class="h4 m-0" id="kpiTotal">0</div></div></div>
-      <div class="col-sm-6 col-lg-3"><div class="card p-3 text-white" style="background:#0ea5e9"><div class="small opacity-75">قيد التنفيذ</div><div class="h4 m-0" id="kpiInProg">0</div></div></div>
-      <div class="col-sm-6 col-lg-3"><div class="card p-3 text-white" style="background:#22c55e"><div class="small opacity-75">مكتملة</div><div class="h4 m-0" id="kpiDone">0</div></div></div>
-      <div class="col-sm-6 col-lg-3"><div class="card p-3 text-white" style="background:#a78bfa"><div class="small opacity-75">إيراد الشهر</div><div class="h4 m-0" id="kpiRevenue">0</div></div></div>
-    </div>
+    <div class="row g-3 mb-3">
+      <div class="col-sm-6 col-lg-3"><div class="card p-3 text-white" style="background:var(--primary)"><div class="small opacity-75">إجمالي التذاكر</div><div class="h4 m-0" id="kpiTotal">0</div></div></div>
+      <div class="col-sm-6 col-lg-3"><div class="card p-3 text-white" style="background:#0ea5e9"><div class="small opacity-75">قيد التنفيذ</div><div class="h4 m-0" id="kpiInProg">0</div></div></div>
+      <div class="col-sm-6 col-lg-3"><div class="card p-3 text-white" style="background:#22c55e"><div class="small opacity-75">مكتملة</div><div class="h4 m-0" id="kpiDone">0</div></div></div>
+      <div class="col-sm-6 col-lg-3"><div class="card p-3 text-white" style="background:#a78bfa"><div class="small opacity-75">إيراد الشهر</div><div class="h4 m-0" id="kpiRevenue">0</div></div></div>
+    </div>
 
-    <div class="card">
-      <div class="card-body">
-        <div class="d-flex align-items-center justify-content-between mb-2">
-          <h5 class="m-0">التذاكر</h5>
-          <div>
-            <span class="pill pill-new">جديد</span>
-            <span class="pill pill-inp ms-1">قيد التنفيذ</span>
-            <span class="pill pill-done ms-1">مكتمل</span>
-          </div>
-        </div>
-        <div class="table-responsive">
-          <table id="tbl" class="table table-striped align-middle" style="width:100%">
-            <thead><tr>
-              <th>رقم</th><th>العميل</th><th>المهندس</th><th>الحالة</th><th>التاريخ</th>
-              <th>العربون</th><th>الإجمالي</th><th>صور</th><th>إسناد</th><th>إجراءات</th>
-            </tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <h5 class="m-0">التذاكر</h5>
+          <div>
+            <span class="pill pill-new">جديد</span>
+            <span class="pill pill-inp ms-1">قيد التنفيذ</span>
+            <span class="pill pill-done ms-1">مكتمل</span>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table id="tbl" class="table table-striped align-middle" style="width:100%">
+            <thead><tr>
+              <th>رقم</th><th>العميل</th><th>المهندس</th><th>الحالة</th><th>التاريخ</th>
+              <th>العربون</th><th>الإجمالي</th><th>صور</th><th>إسناد</th><th>إجراءات</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
 
-    <!-- اتصال السيرفر -->
-    <div class="card mt-4">
-      <div class="card-body">
-        <h5 class="mb-3"><i class="fa-solid fa-plug me-1"></i> اتصال السيرفر</h5>
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label">API Base URL</label>
-            <input id="cn_api" class="form-control" placeholder="https://script.google.com/macros/s/AKfycbw5JAAzQciOSl2z0XtKG5bqk2JkifVPLMMrPou2Ns0xXeOehE0-12z3u0qTdgXxIFwI/exec">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">API Key</label>
-            <input id="cn_key" class="form-control" placeholder="f642937d-fb1">
-          </div>
-          <div class="col-md-2 d-grid">
-            <label class="form-label invisible">—</label>
-            <button id="btnConnSave" class="btn btn-primary"><i class="fa-solid fa-save me-1"></i> حفظ</button>
-          </div>
-        </div>
-        <div class="mt-3 d-flex gap-2">
-          <button id="btnConnTest" class="btn btn-outline-success"><i class="fa-solid fa-vial me-1"></i> اختبار الاتصال</button>
-          <button id="btnConnClear" class="btn btn-outline-danger"><i class="fa-solid fa-trash me-1"></i> مسح التخزين المحلي</button>
-        </div>
-      </div>
-    </div>
+        <div class="card mt-4">
+      <div class="card-body">
+        <h5 class="mb-3"><i class="fa-solid fa-plug me-1"></i> اتصال السيرفر</h5>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">API Base URL</label>
+            <input id="cn_api" class="form-control" placeholder="https://script.google.com/macros/s/AKfycbw5JAAzQciOSl2z0XtKG5bqk2JkifVPLMMrPou2Ns0xXeOehE0-12z3u0qTdgXxIFwI/exec">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">API Key</label>
+            <input id="cn_key" class="form-control" placeholder="f642937d-fb1">
+          </div>
+          <div class="col-md-2 d-grid">
+            <label class="form-label invisible">—</label>
+            <button id="btnConnSave" class="btn btn-primary"><i class="fa-solid fa-save me-1"></i> حفظ</button>
+          </div>
+        </div>
+        <div class="mt-3 d-flex gap-2">
+          <button id="btnConnTest" class="btn btn-outline-success"><i class="fa-solid fa-vial me-1"></i> اختبار الاتصال</button>
+          <button id="btnConnClear" class="btn btn-outline-danger"><i class="fa-solid fa-trash me-1"></i> مسح التخزين المحلي</button>
+        </div>
+      </div>
+    </div>
 
-    <!-- إعدادات التطبيق -->
-    <div class="card mt-4">
-      <div class="card-body">
-        <h5 class="mb-3"><i class="fa-solid fa-gear me-1"></i> إعدادات التطبيق</h5>
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label">اسم الشركة</label>
-            <input id="st_company" class="form-control" placeholder="مثال: مصر تكنولوجى">
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">اللون الرئيسي</label>
-            <input id="st_color" type="color" class="form-control form-control-color">
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">الخط</label>
-            <input id="st_font" class="form-control" placeholder="Tajawal">
-          </div>
+        <div class="card mt-4">
+      <div class="card-body">
+        <h5 class="mb-3"><i class="fa-solid fa-gear me-1"></i> إعدادات التطبيق</h5>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">اسم الشركة</label>
+            <input id="st_company" class="form-control" placeholder="مثال: مصر تكنولوجى">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">اللون الرئيسي</label>
+            <input id="st_color" type="color" class="form-control form-control-color">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">الخط</label>
+            <input id="st_font" class="form-control" placeholder="Tajawal">
+          </div>
 
-          <div class="col-12"><hr></div>
+          <div class="col-12"><hr></div>
 
-          <div class="col-md-3">
-            <label class="form-label">إلزام العنوان التفصيلي</label>
-            <select id="st_req_addr" class="form-select"><option value="true">تشغيل</option><option value="false">تعطيل</option></select>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">إلزام الملاحظات/التشخيص</label>
-            <select id="st_req_notes" class="form-select"><option value="true">تشغيل</option><option value="false">تعطيل</option></select>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">إلزام الصور عند الإغلاق</label>
-            <select id="st_req_photo" class="form-select"><option value="true">تشغيل</option><option value="false">تعطيل</option></select>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">إشعارات واتساب</label>
-            <select id="st_notify_wa" class="form-select"><option value="true">تشغيل</option><option value="false">تعطيل</option></select>
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">إشعارات تيليجرام</label>
-            <select id="st_notify_tg" class="form-select"><option value="true">تشغيل</option><option value="false">تعطيل</option></select>
-          </div>
+          <div class="col-md-3">
+            <label class="form-label">إلزام العنوان التفصيلي</label>
+            <select id="st_req_addr" class="form-select"><option value="true">تشغيل</option><option value="false">تعطيل</option></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">إلزام الملاحظات/التشخيص</label>
+            <select id="st_req_notes" class="form-select"><option value="true">تشغيل</option><option value="false">تعطيل</option></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">إلزام الصور عند الإغلاق</label>
+            <select id="st_req_photo" class="form-select"><option value="true">تشغيل</option><option value="false">تعطيل</option></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">إشعارات واتساب</label>
+            <select id="st_notify_wa" class="form-select"><option value="true">تشغيل</option><option value="false">تعطيل</option></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">إشعارات تيليجرام</label>
+            <select id="st_notify_tg" class="form-select"><option value="true">تشغيل</option><option value="false">تعطيل</option></select>
+          </div>
 
-          <div class="col-12 text-end">
-            <button id="btnSaveSettings" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i> حفظ الإعدادات</button>
-          </div>
-        </div>
-      </div>
-    </div>
+          <div class="col-12 text-end">
+            <button id="btnSaveSettings" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i> حفظ الإعدادات</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
-  </div>
+  </div>
 
-  <!-- مودال إنشاء تذكرة -->
-  <div class="modal fade" id="mdlNew" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-      <div class="modal-content">
-        <div class="modal-header"><h6 class="modal-title">إنشاء تذكرة</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
-        <div class="modal-body">
-          <div class="row g-2">
-            <div class="col-md-4"><label class="form-label">اسم العميل</label><input id="n_customer" class="form-control"></div>
-            <div class="col-md-4"><label class="form-label">الهاتف</label><input id="n_phone" class="form-control"></div>
-            <div class="col-md-4"><label class="form-label">العنوان</label><input id="n_address" class="form-control"></div>
-            <div class="col-md-4"><label class="form-label">نوع الجهاز</label><input id="n_device" class="form-control"></div>
-            <div class="col-md-8"><label class="form-label">وصف المشكلة</label><input id="n_problem" class="form-control"></div>
-            <div class="col-md-6">
-              <label class="form-label">المهندس</label>
-              <select id="n_engineer" class="form-select"></select>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">الحالة</label>
-              <select id="n_status" class="form-select">
-                <option value="new">new</option>
-                <option value="in_progress">in_progress</option>
-                <option value="done">done</option>
-                <option value="cancelled">cancelled</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">إلغاء</button>
-          <button id="btnCreate" class="btn btn-primary">حفظ</button>
-        </div>
-      </div>
-    </div>
-  </div>
+    <div class="modal fade" id="mdlNew" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header"><h6 class="modal-title">إنشاء تذكرة</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="row g-2">
+            <div class="col-md-4"><label class="form-label">اسم العميل</label><input id="n_customer" class="form-control"></div>
+            <div class="col-md-4"><label class="form-label">الهاتف</label><input id="n_phone" class="form-control"></div>
+            <div class="col-md-4"><label class="form-label">العنوان</label><input id="n_address" class="form-control"></div>
+            <div class="col-md-4"><label class="form-label">نوع الجهاز</label><input id="n_device" class="form-control"></div>
+            <div class="col-md-8"><label class="form-label">وصف المشكلة</label><input id="n_problem" class="form-control"></div>
+            <div class="col-md-6">
+              <label class="form-label">المهندس</label>
+              <select id="n_engineer" class="form-select"></select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">الحالة</label>
+              <select id="n_status" class="form-select">
+                <option value="new">new</option>
+                <option value="in_progress">in_progress</option>
+                <option value="done">done</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">إلغاء</button>
+          <button id="btnCreate" class="btn btn-primary">حفظ</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-  <!-- مُحمّل إعدادات مشترك -->
-  <script>
-  // ===== مُحمّل إعدادات عام =====
-  window.APP_CONFIG = {
-    API_BASE: '', API_KEY: '', DEFAULT_COUNTRY_CODE:'20',
-    COMPANY_NAME:'لوحة إدارة الصيانة', PRIMARY_COLOR:'#f97316', FONT_FAMILY:'Tajawal',
-    POLICIES:{REQUIRE_ADDRESS_DETAIL:true, REQUIRE_NOTES:true, REQUIRE_PHOTO:false, NOTIFY_WA:true, NOTIFY_TG:false}
-  };
-  const $ = s=> document.querySelector(s);
-  function applyThemeFromConfig(cfg){
-    if (cfg?.PRIMARY_COLOR) document.documentElement.style.setProperty('--primary', cfg.PRIMARY_COLOR);
-    if (cfg?.FONT_FAMILY)   document.body.style.fontFamily = cfg.FONT_FAMILY + ', system-ui, -apple-system, Segoe UI, Roboto, Arial;
-    const b = document.getElementById('brandName'); if (b && cfg?.COMPANY_NAME) b.textContent = cfg.COMPANY_NAME;
-  }
-  async function apiGET(url){ const r=await fetch(url,{cache:'no-store'}); const j=await r.json(); if(!j.ok) throw new Error(j.error||'API'); return j; }
-  async function apiPOST(body){ const r=await fetch(APP_CONFIG.API_BASE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({key:APP_CONFIG.API_KEY},body))}); const j=await r.json(); if(!j.ok) throw new Error(j.error||'API'); return j; }
-  window.__BOOT=(async function(){
-    const qs = new URLSearchParams(location.search); const qApi=qs.get('api'), qKey=qs.get('key'); if(qApi) localStorage.setItem('API_BASE', qApi); if(qKey) localStorage.setItem('API_KEY', qKey);
-    try{ const r=await fetch('./config.json',{cache:'no-store'}); if(r.ok){ Object.assign(APP_CONFIG, await r.json()); } }catch(_){ }
-    APP_CONFIG.API_BASE = localStorage.getItem('API_BASE') || APP_CONFIG.API_BASE || '';
-    APP_CONFIG.API_KEY  = localStorage.getItem('API_KEY')  || APP_CONFIG.API_KEY  || '';
-    applyThemeFromConfig(APP_CONFIG);
-    if(APP_CONFIG.API_BASE && APP_CONFIG.API_KEY){
-      try{ const j=await apiGET(`${APP_CONFIG.API_BASE}?fn=listSettings&key=${encodeURIComponent(APP_CONFIG.API_KEY)}`);
-        if(j?.ok&&j.data){ const S=j.data; APP_CONFIG.COMPANY_NAME=S.COMPANY_NAME??APP_CONFIG.COMPANY_NAME; APP_CONFIG.PRIMARY_COLOR=S.PRIMARY_COLOR??APP_CONFIG.PRIMARY_COLOR; APP_CONFIG.FONT_FAMILY=S.FONT_FAMILY??APP_CONFIG.FONT_FAMILY; APP_CONFIG.POLICIES={
-          REQUIRE_ADDRESS_DETAIL: String(S.REQUIRE_ADDRESS_DETAIL??'true').toLowerCase()==='true',
-          REQUIRE_NOTES: String(S.REQUIRE_NOTES??'true').toLowerCase()==='true',
-          REQUIRE_PHOTO: String(S.REQUIRE_PHOTO??'false').toLowerCase()==='true',
-          NOTIFY_WA: String(S.NOTIFY_WA??'true').toLowerCase()==='true',
-          NOTIFY_TG: String(S.NOTIFY_TG??'false').toLowerCase()==='true'}; applyThemeFromConfig(APP_CONFIG); }
-      }catch(e){ console.warn('settings:',e.message); }
-    }
-    if(typeof window.__app_boot==='function'){ window.__app_boot(); }
-  });
-  </script>
+    <script>
+  // ===== مُحمّل إعدادات عام =====
+  window.APP_CONFIG = {
+    API_BASE: '', API_KEY: '', DEFAULT_COUNTRY_CODE:'20',
+    COMPANY_NAME:'لوحة إدارة الصيانة', PRIMARY_COLOR:'#f97316', FONT_FAMILY:'Tajawal',
+    POLICIES:{REQUIRE_ADDRESS_DETAIL:true, REQUIRE_NOTES:true, REQUIRE_PHOTO:false, NOTIFY_WA:true, NOTIFY_TG:false}
+  };
+  const $ = s=> document.querySelector(s);
+  function applyThemeFromConfig(cfg){
+    if (cfg?.PRIMARY_COLOR) document.documentElement.style.setProperty('--primary', cfg.PRIMARY_COLOR);
+    if (cfg?.FONT_FAMILY)  document.body.style.fontFamily = cfg.FONT_FAMILY + ', system-ui, -apple-system, Segoe UI, Roboto, Arial';
+    const b = document.getElementById('brandName'); if (b && cfg?.COMPANY_NAME) b.textContent = cfg.COMPANY_NAME;
+  }
+  async function apiGET(url){ const r=await fetch(url,{cache:'no-store'}); const j=await r.json(); if(!j.ok) throw new Error(j.error||'API'); return j; }
+  async function apiPOST(body){ const r=await fetch(APP_CONFIG.API_BASE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({key:APP_CONFIG.API_KEY},body))}); const j=await r.json(); if(!j.ok) throw new Error(j.error||'API'); return j; }
+  window.__BOOT=(async function(){
+    const qs = new URLSearchParams(location.search); const qApi=qs.get('api'), qKey=qs.get('key'); if(qApi) localStorage.setItem('API_BASE', qApi); if(qKey) localStorage.setItem('API_KEY', qKey);
+    try{ const r=await fetch('./config.json',{cache:'no-store'}); if(r.ok){ Object.assign(APP_CONFIG, await r.json()); } }catch(_){ }
+    APP_CONFIG.API_BASE = localStorage.getItem('API_BASE') || APP_CONFIG.API_BASE || '';
+    APP_CONFIG.API_KEY  = localStorage.getItem('API_KEY')  || APP_CONFIG.API_KEY  || '';
+    applyThemeFromConfig(APP_CONFIG);
+    if(APP_CONFIG.API_BASE && APP_CONFIG.API_KEY){
+      try{ const j=await apiGET(`${APP_CONFIG.API_BASE}?fn=listSettings&key=${encodeURIComponent(APP_CONFIG.API_KEY)}`);
+        if(j?.ok&&j.data){ const S=j.data; APP_CONFIG.COMPANY_NAME=S.COMPANY_NAME??APP_CONFIG.COMPANY_NAME; APP_CONFIG.PRIMARY_COLOR=S.PRIMARY_COLOR??APP_CONFIG.PRIMARY_COLOR; APP_CONFIG.FONT_FAMILY=S.FONT_FAMILY??APP_CONFIG.FONT_FAMILY; APP_CONFIG.POLICIES={
+          REQUIRE_ADDRESS_DETAIL: String(S.REQUIRE_ADDRESS_DETAIL??'true').toLowerCase()==='true',
+          REQUIRE_NOTES: String(S.REQUIRE_NOTES??'true').toLowerCase()==='true',
+          REQUIRE_PHOTO: String(S.REQUIRE_PHOTO??'false').toLowerCase()==='true',
+          NOTIFY_WA: String(S.NOTIFY_WA??'true').toLowerCase()==='true',
+          NOTIFY_TG: String(S.NOTIFY_TG??'false').toLowerCase()==='true'}; applyThemeFromConfig(APP_CONFIG); }
+      }catch(e){ console.warn('settings:',e.message); }
+    }
+    if(typeof window.__app_boot==='function'){ window.__app_boot(); }
+  });
+  </script>
 
-  <!-- كود صفحة المدير -->
-  <script>
-    let ALL=[], TECHS=[];
-    const statusPill = s => s==='in_progress' ? '<span class="pill pill-inp">قيد التنفيذ</span>' : (s==='done' ? '<span class="pill pill-done">مكتمل</span>' : (s==='cancelled' ? '<span class="pill pill-cancel">ملغي</span>' : '<span class="pill pill-new">جديد</span>'));
+    <script>
+    let ALL=[], TECHS=[];
+    const statusPill = s => s==='in_progress' ? '<span class="pill pill-inp">قيد التنفيذ</span>' : (s==='done' ? '<span class="pill pill-done">مكتمل</span>' : (s==='cancelled' ? '<span class="pill pill-cancel">ملغي</span>' : '<span class="pill pill-new">جديد</span>'));
 
-    async function fetchTickets(){
-      const j = await apiGET(`${APP_CONFIG.API_BASE}?fn=listAll&key=${encodeURIComponent(APP_CONFIG.API_KEY)}`);
-      return (j.data||[]).map(t=>({ id:t.ticket_id, customer:t.customer_name, tech:t.assigned_to||'', status:t.status||'new', date:(t.opened_at||''), dep:+(t.deposit||0), tot:+(t.total||0), notes:t.order_notes||'', images:(t.device_images||'') }));
-    }
-    async function fetchTechs(){ const j=await apiGET(`${APP_CONFIG.API_BASE}?fn=listTechs&key=${encodeURIComponent(APP_CONFIG.API_KEY)}`); return (j.data||[]).map(x=>x.name).filter(Boolean); }
-    async function assignTicket(payload){ return apiPOST({ fn:'assignTicket', payload }); }
+    async function fetchTickets(){
+      const j = await apiGET(`${APP_CONFIG.API_BASE}?fn=listAll&key=${encodeURIComponent(APP_CONFIG.API_KEY)}`);
+      return (j.data||[]).map(t=>({ id:t.ticket_id, customer:t.customer_name, tech:t.assigned_to||'', status:t.status||'new', date:(t.opened_at||''), dep:+(t.deposit||0), tot:+(t.total||0), notes:t.order_notes||'', images:(t.device_images||'') }));
+    }
+    async function fetchTechs(){ const j=await apiGET(`${APP_CONFIG.API_BASE}?fn=listTechs&key=${encodeURIComponent(APP_CONFIG.API_KEY)}`); return (j.data||[]).map(x=>x.name).filter(Boolean); }
+    async function assignTicket(payload){ return apiPOST({ fn:'assignTicket', payload }); }
 
-    function fillTechFilters(){ const sel=$('#fltTech'); sel.innerHTML=''; sel.insertAdjacentHTML('beforeend','<option value="">كل المهندسين</option>'); TECHS.forEach(n=> sel.insertAdjacentHTML('beforeend',`<option>${n}</option>`)); const nel=$('#n_engineer'); if(nel) nel.innerHTML='<option value="">— بدون —</option>'+TECHS.map(n=>`<option>${n}</option>`).join(''); }
+    function fillTechFilters(){ const sel=$('#fltTech'); sel.innerHTML=''; sel.insertAdjacentHTML('beforeend','<option value="">كل المهندسين</option>'); TECHS.forEach(n=> sel.insertAdjacentHTML('beforeend',`<option>${n}</option>`)); const nel=$('#n_engineer'); if(nel) nel.innerHTML='<option value="">— بدون —</option>'+TECHS.map(n=>`<option>${n}</option>`).join(''); }
 
-    function refreshTable(rows){ const tb=$('#tbl tbody'); tb.innerHTML=''; rows.forEach(r=>{ const imgs=(r.images||'').split('\n').filter(Boolean); const photos=imgs.length?`<a href="${imgs[0]}" target="_blank">${imgs.length} صورة</a>`:'—'; const ageDays=r.date?Math.floor((Date.now()-new Date(r.date).getTime())/86400000):0; const overdue=(r.status!=='done'&&ageDays>=3)?'<span class="badge bg-danger ms-1">متأخرة</span>':''; tb.insertAdjacentHTML('beforeend',`<tr><td>${r.id}</td><td>${r.customer||''} ${overdue}</td><td>${r.tech||''}</td><td>${statusPill(r.status)}</td><td>${r.date||''}</td><td>${r.dep||0}</td><td>${r.tot||0}</td><td>${photos}</td><td><button class="btn btn-sm btn-outline-primary" onclick="openAssign('${r.id}','${(r.customer||'').replace(/'/g,'&#39;')}')">إسناد</button></td><td class="text-nowrap"><button class="btn btn-sm btn-outline-secondary" onclick="copyLink()">نسخ رابط</button></td></tr>`); });
-      // KPIs
-      document.getElementById('kpiTotal').textContent=rows.length; document.getElementById('kpiInProg').textContent=rows.filter(t=>t.status==='in_progress').length; document.getElementById('kpiDone').textContent=rows.filter(t=>t.status==='done').length; const month=new Date().toISOString().slice(0,7); const rev=rows.filter(t=> (t.date||'').startsWith(month)).reduce((a,b)=> a + (Number(b.tot)||0), 0); document.getElementById('kpiRevenue').textContent=rev.toLocaleString('ar-EG')+' ج'; }
+    function refreshTable(rows){ const tb=$('#tbl tbody'); tb.innerHTML=''; rows.forEach(r=>{ const imgs=(r.images||'').split('\n').filter(Boolean); const photos=imgs.length?`<a href="${imgs[0]}" target="_blank">${imgs.length} صورة</a>`:'—'; const ageDays=r.date?Math.floor((Date.now()-new Date(r.date).getTime())/86400000):0; const overdue=(r.status!=='done'&&ageDays>=3)?'<span class="badge bg-danger ms-1">متأخرة</span>':''; tb.insertAdjacentHTML('beforeend',`<tr><td>${r.id}</td><td>${r.customer||''} ${overdue}</td><td>${r.tech||''}</td><td>${statusPill(r.status)}</td><td>${r.date||''}</td><td>${r.dep||0}</td><td>${r.tot||0}</td><td>${photos}</td><td><button class="btn btn-sm btn-outline-primary" onclick="openAssign('${r.id}','${(r.customer||'').replace(/'/g,"\'")}')">إسناد</button></td><td class="text-nowrap"><button class="btn btn-sm btn-outline-secondary" onclick="copyLink()">نسخ رابط</button></td></tr>`); });
+      // KPIs
+      document.getElementById('kpiTotal').textContent=rows.length; document.getElementById('kpiInProg').textContent=rows.filter(t=>t.status==='in_progress').length; document.getElementById('kpiDone').textContent=rows.filter(t=>t.status==='done').length; const month=new Date().toISOString().slice(0,7); const rev=rows.filter(t=> (t.date||'').startsWith(month)).reduce((a,b)=> a + (Number(b.tot)||0), 0); document.getElementById('kpiRevenue').textContent=rev.toLocaleString('ar-EG')+' ج'; }
 
-    function applyFilters(){ const q=($('#q').value||'').toLowerCase(); const te=$('#fltTech').value; const st=$('#fltStatus').value; const f=$('#from').value; const t=$('#to').value; const rows=ALL.filter(r=>{ let ok=true; if(q) ok=ok&&(`${r.id} ${r.customer} ${r.tech} ${r.notes}`.toLowerCase().includes(q)); if(te) ok=ok&&r.tech===te; if(st) ok=ok&&r.status===st; if(f) ok=ok&&new Date(r.date)>=new Date(f); if(t) ok=ok&&new Date(r.date)<=new Date(t+'T23:59:59'); return ok; }); refreshTable(rows); }
+    function applyFilters(){ const q=($('#q').value||'').toLowerCase(); const te=$('#fltTech').value; const st=$('#fltStatus').value; const f=$('#from').value; const t=$('#to').value; const rows=ALL.filter(r=>{ let ok=true; if(q) ok=ok&&(`${r.id} ${r.customer} ${r.tech} ${r.notes}`.toLowerCase().includes(q)); if(te) ok=ok&&r.tech===te; if(st) ok=ok&&r.status===st; if(f) ok=ok&&new Date(r.date)>=new Date(f); if(t) ok=ok&&new Date(r.date)<=new Date(t+'T23:59:59'); return ok; }); refreshTable(rows); }
 
-    window.copyLink=()=>{ navigator.clipboard.writeText(location.href.split('#')[0]); alert('تم نسخ رابط الصفحة.'); };
-    window.openAssign=async (id, customer)=>{ const engineer=prompt('اسم المهندس المكلّف؟ (اختر من القائمة):\n'+TECHS.join(', ')); if(!engineer) return; const phone=prompt('هاتف العميل (اختياري)?',''); const summary=prompt('ملخص قصير للتذكرة/الموعد؟',''); try{ await assignTicket({ ticket_id:id, engineer, phone, summary, customer_name:customer }); alert('تم الإسناد (قد تم إرسال إخطار من السكربت).'); await reloadAll(); }catch(e){ alert('تعذّر الإسناد: '+e.message); } };
+    window.copyLink=()=>{ navigator.clipboard.writeText(location.href.split('#')[0]); alert('تم نسخ رابط الصفحة.'); };
+    window.openAssign=async (id, customer)=>{ const engineer=prompt('اسم المهندس المكلّف؟ (اختر من القائمة):\n'+TECHS.join(', ')); if(!engineer) return; const phone=prompt('هاتف العميل (اختياري)?',''); const summary=prompt('ملخص قصير للتذكرة/الموعد؟',''); try{ await assignTicket({ ticket_id:id, engineer, phone, summary, customer_name:customer }); alert('تم الإسناد (قد تم إرسال إخطار من السكربت).'); await reloadAll(); }catch(e){ alert('تعذّر الإسناد: '+e.message); } };
 
-    async function reloadAll(){ ALL=await fetchTickets(); try{ TECHS=await fetchTechs(); }catch(e){ TECHS=[]; } fillTechFilters(); refreshTable(ALL); }
+    async function reloadAll(){ ALL=await fetchTickets(); try{ TECHS=await fetchTechs(); }catch(e){ TECHS=[]; } fillTechFilters(); refreshTable(ALL); }
 
-    function exportCSV(rows){ const header=['id','customer','tech','status','date','dep','tot','notes']; const csv=[header.join(',')].concat(rows.map(r=> header.map(h=> JSON.stringify(r[h]??'')).join(','))).join('\n'); const blob=new Blob([csv], {type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='tickets.csv'; a.click(); URL.revokeObjectURL(url); }
-    function exportXLSX(rows){ const ws=XLSX.utils.json_to_sheet(rows); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Tickets'); XLSX.writeFile(wb, 'tickets.xlsx'); }
+    function exportCSV(rows){ const header=['id','customer','tech','status','date','dep','tot','notes']; const csv=[header.join(',')].concat(rows.map(r=> header.map(h=> JSON.stringify(r[h]??'')).join(','))).join('\n'); const blob=new Blob([csv], {type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='tickets.csv'; a.click(); URL.revokeObjectURL(url); }
+    function exportXLSX(rows){ const ws=XLSX.utils.json_to_sheet(rows); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Tickets'); XLSX.writeFile(wb, 'tickets.xlsx'); }
 
-    // اتصال السيرفر
-    function fillConnForm(){ $('#cn_api').value=localStorage.getItem('API_BASE')||APP_CONFIG.API_BASE||''; $('#cn_key').value=localStorage.getItem('API_KEY')||APP_CONFIG.API_KEY||''; }
-    document.addEventListener('click', (ev)=>{
-      if(ev.target.id==='btnConnSave'){ const api=$('#cn_api').value.trim(); const key=$('#cn_key').value.trim(); if(!api||!key) return alert('أدخل API Base و API Key'); localStorage.setItem('API_BASE', api); localStorage.setItem('API_KEY', key); APP_CONFIG.API_BASE=api; APP_CONFIG.API_KEY=key; alert('تم الحفظ. حدّث الصفحة.'); }
-      if(ev.target.id==='btnConnTest'){ const api=$('#cn_api').value.trim(); const key=$('#cn_key').value.trim(); if(!api||!key) return alert('أدخل API Base و API Key'); apiGET(`${api}?fn=health&key=${encodeURIComponent(key)}`).then(()=>alert('الاتصال ناجح ✅')).catch(e=>alert('فشل: '+e.message)); }
-      if(ev.target.id==='btnConnClear'){ localStorage.removeItem('API_BASE'); localStorage.removeItem('API_KEY'); alert('تم المسح. أعد التحميل أو مرّر ?api= و ?key='); }
-    });
+    // اتصال السيرفر
+    function fillConnForm(){ $('#cn_api').value=localStorage.getItem('API_BASE')||APP_CONFIG.API_BASE||''; $('#cn_key').value=localStorage.getItem('API_KEY')||APP_CONFIG.API_KEY||''; }
+    document.addEventListener('click', (ev)=>{
+      if(ev.target.id==='btnConnSave'){ const api=$('#cn_api').value.trim(); const key=$('#cn_key').value.trim(); if(!api||!key) return alert('أدخل API Base و API Key'); localStorage.setItem('API_BASE', api); localStorage.setItem('API_KEY', key); APP_CONFIG.API_BASE=api; APP_CONFIG.API_KEY=key; alert('تم الحفظ. حدّث الصفحة.'); }
+      if(ev.target.id==='btnConnTest'){ const api=$('#cn_api').value.trim(); const key=$('#cn_key').value.trim(); if(!api||!key) return alert('أدخل API Base و API Key'); apiGET(`${api}?fn=health&key=${encodeURIComponent(key)}`).then(()=>alert('الاتصال ناجح ✅')).catch(e=>alert('فشل: '+e.message)); }
+      if(ev.target.id==='btnConnClear'){ localStorage.removeItem('API_BASE'); localStorage.removeItem('API_KEY'); alert('تم المسح. أعد التحميل أو مرّر ?api= و ?key='); }
+    });
 
-    // إعدادات التطبيق (يحفظ إلى ورقة Settings)
-    function fillSettingsForm(){ $('#st_company').value=APP_CONFIG.COMPANY_NAME||''; $('#st_color').value=APP_CONFIG.PRIMARY_COLOR||'#f97316'; $('#st_font').value=APP_CONFIG.FONT_FAMILY||'Tajawal'; $('#st_req_addr').value=String(!!APP_CONFIG.POLICIES.REQUIRE_ADDRESS_DETAIL); $('#st_req_notes').value=String(!!APP_CONFIG.POLICIES.REQUIRE_NOTES); $('#st_req_photo').value=String(!!APP_CONFIG.POLICIES.REQUIRE_PHOTO); $('#st_notify_wa').value=String(!!APP_CONFIG.POLICIES.NOTIFY_WA); $('#st_notify_tg').value=String(!!APP_CONFIG.POLICIES.NOTIFY_TG); }
-    document.getElementById('btnSaveSettings').addEventListener('click', async ()=>{
-      if(!APP_CONFIG.API_BASE||!APP_CONFIG.API_KEY) return alert('اضبط اتصال السيرفر أولًا');
-      const payload={ COMPANY_NAME:$('#st_company').value.trim(), PRIMARY_COLOR:$('#st_color').value, FONT_FAMILY:$('#st_font').value.trim(), REQUIRE_ADDRESS_DETAIL:$('#st_req_addr').value, REQUIRE_NOTES:$('#st_req_notes').value, REQUIRE_PHOTO:$('#st_req_photo').value, NOTIFY_WA:$('#st_notify_wa').value, NOTIFY_TG:$('#st_notify_tg').value };
-      try{ await apiPOST({fn:'saveSettings', payload}); alert('تم الحفظ ✅'); Object.assign(APP_CONFIG, payload); document.documentElement.style.setProperty('--primary', APP_CONFIG.PRIMARY_COLOR); }catch(e){ alert('تعذّر الحفظ: '+e.message); }
-    });
+    // إعدادات التطبيق (يحفظ إلى ورقة Settings)
+    function fillSettingsForm(){ $('#st_company').value=APP_CONFIG.COMPANY_NAME||''; $('#st_color').value=APP_CONFIG.PRIMARY_COLOR||'#f97316'; $('#st_font').value=APP_CONFIG.FONT_FAMILY||'Tajawal'; $('#st_req_addr').value=String(!!APP_CONFIG.POLICIES.REQUIRE_ADDRESS_DETAIL); $('#st_req_notes').value=String(!!APP_CONFIG.POLICIES.REQUIRE_NOTES); $('#st_req_photo').value=String(!!APP_CONFIG.POLICIES.REQUIRE_PHOTO); $('#st_notify_wa').value=String(!!APP_CONFIG.POLICIES.NOTIFY_WA); $('#st_notify_tg').value=String(!!APP_CONFIG.POLICIES.NOTIFY_TG); }
+    document.getElementById('btnSaveSettings').addEventListener('click', async ()=>{
+      if(!APP_CONFIG.API_BASE||!APP_CONFIG.API_KEY) return alert('اضبط اتصال السيرفر أولًا');
+      const payload={ COMPANY_NAME:$('#st_company').value.trim(), PRIMARY_COLOR:$('#st_color').value, FONT_FAMILY:$('#st_font').value.trim(), REQUIRE_ADDRESS_DETAIL:$('#st_req_addr').value, REQUIRE_NOTES:$('#st_req_notes').value, REQUIRE_PHOTO:$('#st_req_photo').value, NOTIFY_WA:$('#st_notify_wa').value, NOTIFY_TG:$('#st_notify_tg').value };
+      try{ await apiPOST({fn:'saveSettings', payload}); alert('تم الحفظ ✅'); Object.assign(APP_CONFIG, payload); document.documentElement.style.setProperty('--primary', APP_CONFIG.PRIMARY_COLOR); }catch(e){ alert('تعذّر الحفظ: '+e.message); }
+    });
 
-    // إنشاء التذكرة
-    document.getElementById('btnCreate').addEventListener('click', async ()=>{
-      const data={ ticket_id:'T-'+Date.now(), customer_name:$('#n_customer').value.trim(), phone:$('#n_phone').value.trim(), address:$('#n_address').value.trim(), device_type:$('#n_device').value.trim(), problem_desc:$('#n_problem').value.trim(), status:document.getElementById('n_status').value, assigned_to:document.getElementById('n_engineer').value };
-      if(!data.customer_name) return alert('أدخل اسم العميل');
-      try{ await apiPOST({fn:'addTicket', payload:data}); alert('تم إنشاء التذكرة'); bootstrap.Modal.getInstance(document.getElementById('mdlNew')).hide(); await reloadAll(); }catch(e){ alert('تعذّر الإنشاء: '+e.message); }
-    });
+    // إنشاء التذكرة
+    document.getElementById('btnCreate').addEventListener('click', async ()=>{
+      const data={ ticket_id:'T-'+Date.now(), customer_name:$('#n_customer').value.trim(), phone:$('#n_phone').value.trim(), address:$('#n_address').value.trim(), device_type:$('#n_device').value.trim(), problem_desc:$('#n_problem').value.trim(), status:document.getElementById('n_status').value, assigned_to:document.getElementById('n_engineer').value };
+      if(!data.customer_name) return alert('أدخل اسم العميل');
+      try{ await apiPOST({fn:'addTicket', payload:data}); alert('تم إنشاء التذكرة'); bootstrap.Modal.getInstance(document.getElementById('mdlNew')).hide(); await reloadAll(); }catch(e){ alert('تعذّر الإنشاء: '+e.message); }
+    });
 
-    async function __app_boot(){ if(!APP_CONFIG.API_BASE||!APP_CONFIG.API_KEY){ fillConnForm(); fillSettingsForm(); return; } await reloadAll(); fillConnForm(); fillSettingsForm(); document.getElementById('btnSearch').addEventListener('click', applyFilters); document.getElementById('btnReset').addEventListener('click', async ()=>{ $('#q').value=''; $('#fltTech').value=''; $('#fltStatus').value=''; $('#from').value=''; $('#to').value=''; await reloadAll(); }); document.getElementById('btnExportCSV').onclick=()=> exportCSV(ALL); document.getElementById('btnExportXLSX').onclick=()=> exportXLSX(ALL); }
-    window.__app_boot = __app_boot;
-  </script>
+    async function __app_boot(){ if(!APP_CONFIG.API_BASE||!APP_CONFIG.API_KEY){ fillConnForm(); fillSettingsForm(); return; } await reloadAll(); fillConnForm(); fillSettingsForm(); document.getElementById('btnSearch').addEventListener('click', applyFilters); document.getElementById('btnReset').addEventListener('click', async ()=>{ $('#q').value=''; $('#fltTech').value=''; $('#fltStatus').value=''; $('#from').value=''; $('#to').value=''; await reloadAll(); }); document.getElementById('btnExportCSV').onclick=()=> exportCSV(ALL); document.getElementById('btnExportXLSX').onclick=()=> exportXLSX(ALL); }
+    window.__app_boot = __app_boot;
+  </script>
 </body>
 </html>
-```
-
----
-
-# engineer-dashboard.html (final)
-
-```html
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>مصر تكنولوجى — لوحة المهندس</title>
-  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#f97316">
-  <style>
-    :root{ --primary:#f97316; --bg:#faf8f5; --card:#fff; --text:#111 }
-    body{ font-family:'Tajawal', system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text) }
-    .navbar{ background:var(--primary)!important }
-    .pill{ border-radius:999px; font-size:.75rem; padding:.25rem .6rem; display:inline-block }
-    .pill-new{ background:#fff4ea; color:var(--primary) }
-    .pill-inp{ background:#eaf6ff; color:#0ea5e9 }
-    .pill-done{ background:#eafaf0; color:#16a34a }
-    .ticket-card:hover{ transform:translateY(-2px); transition:.2s }
-    .thumb{ width:70px; height:70px; object-fit:cover; border-radius:.7rem; border:1px solid #eee }
-    .form-control, .form-select{ border-radius:.8rem }
-    .floating-add{ position:fixed; inset-inline-end:16px; inset-block-end:16px; z-index:999 }
-  </style>
-</head>
-<body>
-  <nav class="navbar navbar-dark">
-    <div class="container-fluid">
-      <div class="navbar-brand d-flex align-items-center gap-2">
-        <i class="fa-solid fa-screwdriver-wrench"></i>
-        <span>لوحة المهندس</span>
-        <span class="mx-2">•</span>
-        <span class="fw-bold" id="engineerNameShow">المهندس</span>
-      </div>
-    </div>
-  </nav>
-
-  <div class="container py-4">
-    <div class="row g-3 align-items-end mb-3">
-      <div class="col-md-5">
-        <label class="form-label">بحث في تذاكري</label>
-        <input id="search" class="form-control" placeholder="ابحث باسم العميل / رقم التذكرة / نوع الجهاز" />
-      </div>
-      <div class="col-md-3">
-        <label class="form-label">الحالة</label>
-        <select id="fltStatus" class="form-select">
-          <option value="">كل الحالات</option>
-          <option value="new">new</option>
-          <option value="in_progress">in_progress</option>
-          <option value="done">done</option>
-        </select>
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">من</label>
-        <input id="from" type="date" class="form-control" />
-      </div>
-      <div class="col-md-2">
-        <label class="form-label">إلى</label>
-        <input id="to" type="date" class="form-control" />
-      </div>
-    </div>
-
-    <div class="row g-3 mb-3">
-      <div class="col-6 col-lg-3"><div class="card p-3 text-white" style="background:var(--primary)"><div class="small opacity-75">إجمالي تذاكري</div><div class="h4 m-0" id="kAll">0</div></div></div>
-      <div class="col-6 col-lg-3"><div class="card p-3 text-white" style="background:#0ea5e9"><div class="small opacity-75">قيد التنفيذ</div><div class="h4 m-0" id="kInp">0</div></div></div>
-      <div class="col-6 col-lg-3"><div class="card p-3 text-white" style="background:#22c55e"><div class="small opacity-75">مكتملة</div><div class="h4 m-0" id="kDone">0</div></div></div>
-      <div class="col-6 col-lg-3"><div class="card p-3 text-white" style="background:#a78bfa"><div class="small opacity-75">مواعيد اليوم</div><div class="h4 m-0" id="kToday">0</div></div></div>
-    </div>
-
-    <div id="list" class="row g-3"></div>
-    <div id="empty" class="text-center text-muted py-5 d-none"><i class="fa-regular fa-face-grin-beam-sweat fa-2x mb-3"></i><div>لا توجد تذاكر مطابقة الآن</div></div>
-  </div>
-
-  <button class="btn btn-primary rounded-pill shadow floating-add" id="btnQuick"><i class="fa-solid fa-bolt me-1"></i> حفظ التغييرات الجارية</button>
-
-  <div class="modal fade" id="mdl" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-      <div class="modal-content">
-        <div class="modal-header"><h6 class="modal-title">تفاصيل التذكرة</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-        <div class="modal-body">
-          <div class="row g-2 align-items-end">
-            <div class="col-md-4"><label class="form-label">رقم التذكرة</label><input id="f_id" class="form-control" disabled /></div>
-            <div class="col-md-4"><label class="form-label">العميل</label><input id="f_customer" class="form-control" disabled /></div>
-            <div class="col-md-4"><label class="form-label">الهاتف</label>
-              <div class="input-group">
-                <input id="f_phone" class="form-control" disabled />
-                <a id="f_whatsapp" class="btn btn-success" target="_blank"><i class="fa-brands fa-whatsapp"></i></a>
-                <a id="f_call" class="btn btn-outline-secondary" target="_blank"><i class="fa-solid fa-phone"></i></a>
-              </div>
-            </div>
-            <div class="col-12">
-              <label class="form-label">العنوان بالتفصيل</label>
-              <div class="input-group">
-                <textarea id="f_addr_detail" class="form-control" rows="2" placeholder="مثال: الدور الثالث شقة 12..."></textarea>
-                <a id="btnMap" class="btn btn-outline-success" target="_blank"><i class="fa-solid fa-map-location-dot"></i></a>
-              </div>
-            </div>
-            <div class="col-6 col-md-3"><label class="form-label">العربون</label><input id="f_dep" type="number" class="form-control" /></div>
-            <div class="col-6 col-md-3"><label class="form-label">الإجمالي</label><input id="f_tot" type="number" class="form-control" /></div>
-            <div class="col-12"><label class="form-label">تفاصيل/تشخيص الطلب</label><textarea id="f_notes" class="form-control" rows="3" placeholder="مثال: تغيير سير، تغيير موتور، إصلاح كارتة..."></textarea></div>
-          </div>
-          <div class="mt-3">
-            <div class="d-flex align-items-center justify-content-between">
-              <div class="fw-semibold">قطع مسحوبة</div>
-              <button class="btn btn-sm btn-outline-primary" id="btnAddPart"><i class="fa-solid fa-plus"></i> إضافة قطعة</button>
-            </div>
-            <div id="parts" class="mt-2"></div>
-          </div>
-          <div class="mt-3">
-            <div class="fw-semibold">صور الزيارة</div>
-            <div class="row g-2 align-items-center mt-1">
-              <div class="col-auto">
-                <label class="btn btn-outline-secondary mb-0">
-                  <i class="fa-solid fa-camera me-1"></i> رفع صور/فتح الكاميرا
-                  <input id="f_photos" type="file" accept="image/*" capture="environment" multiple hidden />
-                </label>
-              </div>
-              <div class="col"><div id="photoPreview" class="d-flex gap-2 flex-wrap"></div></div>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">إغلاق</button>
-          <button id="btnSave" class="btn btn-primary">حفظ</button>
-          <button id="btnDone" class="btn btn-success">تم الإغلاق</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-  <!-- مُحمّل إعدادات مشترك -->
-  <script>
-  window.APP_CONFIG = {
-    API_BASE:'', API_KEY:'', DEFAULT_COUNTRY_CODE:'20', COMPANY_NAME:'لوحة إدارة الصيانة', PRIMARY_COLOR:'#f97316', FONT_FAMILY:'Tajawal',
-    POLICIES:{REQUIRE_ADDRESS_DETAIL:true, REQUIRE_NOTES:true, REQUIRE_PHOTO:false, NOTIFY_WA:true, NOTIFY_TG:false}
-  };
-  const $ = s=> document.querySelector(s);
-  const $el=(t,a={},h='')=>{const e=document.createElement(t);Object.entries(a).forEach(([k,v])=> e.setAttribute(k,v)); if(h) e.innerHTML=h; return e; };
-  function applyThemeFromConfig(cfg){ if(cfg?.PRIMARY_COLOR) document.documentElement.style.setProperty('--primary', cfg.PRIMARY_COLOR); if(cfg?.FONT_FAMILY) document.body.style.fontFamily = cfg.FONT_FAMILY + ', system-ui, -apple-system, Segoe UI, Roboto, Arial; }
-  async function apiGET(url){ const r=await fetch(url,{cache:'no-store'}); const j=await r.json(); if(!j.ok) throw new Error(j.error||'API'); return j; }
-  async function apiPOST(body){ const r=await fetch(APP_CONFIG.API_BASE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({key:APP_CONFIG.API_KEY},body))}); const j=await r.json(); if(!j.ok) throw new Error(j.error||'API'); return j; }
-  const getParam=(n)=> new URL(location.href).searchParams.get(n);
-  const waLink=(num,txt='')=>{ const n=(num||'').replace(/\D/g,''); return n?`https://wa.me/${n}?text=${encodeURIComponent(txt)}`:'#'; };
-  const telLink=(num)=>{ const n=(num||'').replace(/\D/g,''); return n?`tel:${n}`:'#'; };
-  const gmaps=(addr)=> `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr||'')}`;
-
-  window.__BOOT=(async function(){
-    const qs=new URLSearchParams(location.search); const qApi=qs.get('api'), qKey=qs.get('key'); if(qApi) localStorage.setItem('API_BASE', qApi); if(qKey) localStorage.setItem('API_KEY', qKey);
-    try{ const r=await fetch('./config.json',{cache:'no-store'}); if(r.ok){ Object.assign(APP_CONFIG, await r.json()); } }catch(_){ }
-    APP_CONFIG.API_BASE = localStorage.getItem('API_BASE') || APP_CONFIG.API_BASE || '';
-    APP_CONFIG.API_KEY  = localStorage.getItem('API_KEY')  || APP_CONFIG.API_KEY  || '';
-    applyThemeFromConfig(APP_CONFIG);
-    if(APP_CONFIG.API_BASE && APP_CONFIG.API_KEY){
-      try{ const j=await apiGET(`${APP_CONFIG.API_BASE}?fn=listSettings&key=${encodeURIComponent(APP_CONFIG.API_KEY)}`);
-        if(j?.ok&&j.data){ const S=j.data; APP_CONFIG.COMPANY_NAME=S.COMPANY_NAME??APP_CONFIG.COMPANY_NAME; APP_CONFIG.PRIMARY_COLOR=S.PRIMARY_COLOR??APP_CONFIG.PRIMARY_COLOR; APP_CONFIG.FONT_FAMILY=S.FONT_FAMILY??APP_CONFIG.FONT_FAMILY; APP_CONFIG.POLICIES={
-          REQUIRE_ADDRESS_DETAIL:String(S.REQUIRE_ADDRESS_DETAIL??'true').toLowerCase()==='true',
-          REQUIRE_NOTES:String(S.REQUIRE_NOTES??'true').toLowerCase()==='true',
-          REQUIRE_PHOTO:String(S.REQUIRE_PHOTO??'false').toLowerCase()==='true',
-          NOTIFY_WA:String(S.NOTIFY_WA??'true').toLowerCase()==='true',
-          NOTIFY_TG:String(S.NOTIFY_TG??'false').toLowerCase()==='true'}; }
-      }catch(e){ console.warn('settings:',e.message); }
-    }
-    if(typeof window.__app_boot==='function'){ window.__app_boot(); }
-  });
-  </script>
-
-  <!-- كود صفحة المهندس -->
-  <script>
-    let engineer='المهندس'; let tickets=[]; let current=null;
-    function statusPill(s){ if (s==='in_progress') return '<span class="pill pill-inp">قيد التنفيذ</span>'; if (s==='done') return '<span class="pill pill-done">مكتمل</span>'; return '<span class="pill pill-new">جديد</span>'; }
-
-    async function fetchTicketsFromServer(engineer){ const url=`${APP_CONFIG.API_BASE}?fn=listTickets&engineer=${encodeURIComponent(engineer)}&key=${encodeURIComponent(APP_CONFIG.API_KEY)}`; const j=await apiGET(url); return j.data.map(t=>({ id:t.ticket_id, customer:t.customer_name, phone:t.phone, address:t.address, device:t.device_type, problem:t.problem_desc, status:t.status||'new', assigned_to:t.assigned_to, date:(t.opened_at||''), dep:Number(t.deposit||0), tot:Number(t.total||0), addr_detail:t.address_detail||'', notes:t.order_notes||'', parts:[], photos:[] })); }
-    async function apiUpdateTicket(payload){ return apiPOST({ fn:'updateTicket', payload }); }
-    async function apiUploadPhotos(payload){ return apiPOST({ fn:'uploadPhotos', payload }); }
-
-    function ticketCard(t){ const col=$el('div',{class:'col-12 col-md-6 col-xl-4'}); const overdue=(t.status!=='done'&&t.date&&(Date.now()-new Date(t.date).getTime())/86400000>=3)?'<span class="badge bg-danger ms-2">متأخرة</span>':''; col.innerHTML=`<div class="card p-3 ticket-card"><div class="d-flex justify-content-between align-items-start"><div><div class="fw-semibold">${t.customer}</div><div class="small text-muted">${t.device||'-'} — ${t.problem||'-'}</div><div class="small text-muted">${t.address||'-'}</div></div><div>${statusPill(t.status)}${overdue}</div></div><div class="d-flex gap-2 mt-2"><a class="btn btn-success btn-sm" href="${waLink(t.phone,'مرحبًا، أنا المهندس المكلف بطلبك.')}" target="_blank"><i class="fa-brands fa-whatsapp me-1"></i> واتساب</a><a class="btn btn-outline-secondary btn-sm" href="${telLink(t.phone)}"><i class="fa-solid fa-phone me-1"></i> اتصال</a><a class="btn btn-outline-success btn-sm" href="${gmaps(t.address)}" target="_blank"><i class="fa-solid fa-map-location-dot me-1"></i> خريطة</a><button class="btn btn-primary btn-sm" onclick="openDetails('${t.id}')"><i class="fa-solid fa-pen me-1"></i> التفاصيل</button><button class="btn btn-outline-secondary btn-sm" onclick="markInProgress('${t.id}')">بدء</button><button class="btn btn-outline-success btn-sm" onclick="markDone('${t.id}')">تم</button></div></div>`; return col; }
-
-    function openDetails(id){ current=tickets.find(x=>x.id===id); if(!current) return; $('#f_id').value=current.id; $('#f_customer').value=current.customer; $('#f_phone').value=current.phone||''; $('#f_whatsapp').href=waLink(current.phone,`مرحبًا ${current.customer||''}`); $('#f_call').href=telLink(current.phone); $('#f_addr_detail').value=current.addr_detail||''; $('#f_dep').value=current.dep||0; $('#f_tot').value=current.tot||0; $('#f_notes').value=current.notes||''; $('#btnMap').href=gmaps(`${current.address||''} ${($('#f_addr_detail').value||'')}`.trim()); const parts=$('#parts'); parts.innerHTML=''; (current.parts||[]).forEach((p,i)=> parts.appendChild(partRow(i,p.name,p.qty))); const prev=$('#photoPreview'); prev.innerHTML=''; (current.photos||[]).forEach(src=> prev.appendChild(imgThumb(src))); new bootstrap.Modal($('#mdl')).show(); }
-
-    function partRow(i,name='',qty=1){ const wrap=$el('div',{class:'row g-2 align-items-center mb-1'}); wrap.innerHTML=`<div class="col-7"><input class="form-control" type="text" placeholder="اسم القطعة" value="${name}"></div><div class="col-3"><input type="number" class="form-control" value="${qty}"></div><div class="col-2 d-grid"><button class="btn btn-outline-danger" type="button">حذف</button></div>`; wrap.querySelector('button').onclick=()=> wrap.remove(); return wrap; }
-
-    function onPhotosSelected(e){ const prev=$('#photoPreview'); [...e.target.files].forEach(file=>{ const r=new FileReader(); r.onload=()=> prev.appendChild(imgThumb(r.result)); r.readAsDataURL(file); }); }
-    function imgThumb(src){ const img=$el('img',{src, class:'thumb'}); return img; }
-    function formHasPhoto(){ return document.querySelectorAll('#photoPreview img').length>0; }
-
-    function validateBeforeSaveOrClose(requirePhoto){ const errs=[]; const REQ=APP_CONFIG.POLICIES||{}; if(String(REQ.REQUIRE_ADDRESS_DETAIL||'true').toLowerCase()==='true' && !$('#f_addr_detail').value.trim()) errs.push('العنوان التفصيلي'); if(String(REQ.REQUIRE_NOTES||'true').toLowerCase()==='true' && !$('#f_notes').value.trim()) errs.push('تفاصيل/تشخيص الطلب'); if(requirePhoto && String(REQ.REQUIRE_PHOTO||'false').toLowerCase()==='true' && !formHasPhoto()) errs.push('صورة واحدة على الأقل'); if(errs.length){ alert('الحقول المطلوبة: '+errs.join(' + ')); return false; } return true; }
-
-    async function saveTicketDetails(){ if(!current) return; if(!validateBeforeSaveOrClose(false)) return; const payload={ ticket_id:current.id, engineer, address_detail:$('#f_addr_detail').value.trim(), deposit:Number($('#f_dep').value||0), total:Number($('#f_tot').value||0), order_notes:$('#f_notes').value.trim(), pulled_parts:partsToText(), markDone:false }; await apiUpdateTicket(payload); const photosDataUrls=[...document.querySelectorAll('#photoPreview img')].map(i=> i.src); if(photosDataUrls.length){ await apiUploadPhotos({ ticket_id:current.id, engineer, customer_name:current.customer, tech_name:engineer, photos:photosDataUrls, parts:[] }); } alert('تم الحفظ.'); try{ tickets=await fetchTicketsFromServer(engineer);}catch(e){} bootstrap.Modal.getInstance($('#mdl')).hide(); renderList(); }
-
-    async function markInProgress(id){ const t=tickets.find(x=>x.id===id); if(!t) return; current=t; await apiUpdateTicket({ ticket_id:id, engineer, status:'in_progress', markDone:false }); try{ tickets=await fetchTicketsFromServer(engineer);}catch(e){} renderList(); }
-    async function markDone(id){ if(!id) return; if(!current) current=tickets.find(x=>x.id===id); if(!validateBeforeSaveOrClose(true)) return; await apiUpdateTicket({ ticket_id:id, engineer, markDone:true }); alert('تم إغلاق التذكرة.'); try{ tickets=await fetchTicketsFromServer(engineer);}catch(e){} renderList(); bootstrap.Modal.getInstance($('#mdl'))?.hide(); }
-
-    function partsToText(){ const rows=[...document.querySelectorAll('#parts .row')]; return rows.map(r=>{ const name=r.querySelector('input[type="text"]').value.trim(); const qty=Number(r.querySelector('input[type="number"]').value||1); return name?`${name} x${qty}`:''; }).filter(Boolean).join('\n'); }
-
-    function renderList(){ const list=$('#list'); list.innerHTML=''; const q=($('#search').value||'').toLowerCase(); const st=$('#fltStatus').value; const from=$('#from').value; const to=$('#to').value; const mine=tickets.filter(t=> t.assigned_to===engineer).filter(t=> !q || (`${t.id} ${t.customer} ${t.device} ${t.problem}`.toLowerCase().includes(q))).filter(t=> !st || t.status===st).filter(t=> !from || new Date(t.date)>=new Date(from)).filter(t=> !to || new Date(t.date)<=new Date(to+'T23:59:59')); document.getElementById('kAll').textContent=mine.length; document.getElementById('kInp').textContent=mine.filter(x=>x.status==='in_progress').length; document.getElementById('kDone').textContent=mine.filter(x=>x.status==='done').length; const todayStr=new Date().toISOString().slice(0,10); document.getElementById('kToday').textContent=mine.filter(x=> (x.date||'').slice(0,10)===todayStr).length; if(!mine.length){ $('#empty').classList.remove('d-none'); return } else { $('#empty').classList.add('d-none'); } mine.forEach(t=> list.appendChild(ticketCard(t))); }
-
-    function __app_boot(){ engineer=getParam('engineer')||getParam('tech')||engineer; document.getElementById('engineerNameShow').textContent=engineer; ['search','fltStatus','from','to'].forEach(id=> document.getElementById(id).addEventListener('input', renderList)); document.getElementById('f_photos').addEventListener('change', onPhotosSelected); document.getElementById('btnAddPart').addEventListener('click', ()=> document.getElementById('parts').appendChild(partRow(Date.now())) ); document.getElementById('btnSave').addEventListener('click', saveTicketDetails); document.getElementById('btnDone').addEventListener('click', ()=> markDone(current?.id)); (async()=>{ try{ tickets=await fetchTicketsFromServer(engineer);}catch(e){ tickets=[]; } renderList(); })(); }
-    window.__app_boot = __app_boot;
-  </script>
-</body>
-</html>
-```
