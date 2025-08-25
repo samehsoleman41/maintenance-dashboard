@@ -520,3 +520,47 @@
   </script>
 </body>
 </html>
+<div class="card mt-4">
+  <div class="card-body">
+    <h5 class="mb-3"><i class="fa-solid fa-gear me-1"></i> الإعدادات</h5>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">API Base URL</label>
+        <input id="cfg_api_base" class="form-control" placeholder="https://script.google.com/macros/s/.../exec" />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">API Key</label>
+        <input id="cfg_api_key" class="form-control" placeholder="مثال: f642937d-fb1" />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">اسم الشركة</label>
+        <input id="cfg_company_name" class="form-control" placeholder="مثال: مصر تكنولوجى" />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">اللون الرئيسي</label>
+        <input id="cfg_color" type="color" class="form-control form-control-color" />
+      </div>
+      <div class="col-md-12 text-end">
+        <button id="btnSaveSettings" class="btn btn-primary">
+          <i class="fa-solid fa-save me-1"></i> حفظ الإعدادات
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+function loadSettings() {
+  $('#cfg_api_base').value = localStorage.getItem('API_BASE') || APP_CONFIG.API_BASE;
+  $('#cfg_api_key').value  = localStorage.getItem('API_KEY') || APP_CONFIG.API_KEY;
+  $('#cfg_company_name').value = localStorage.getItem('COMPANY_NAME') || APP_CONFIG.COMPANY_NAME;
+  $('#cfg_color').value = localStorage.getItem('PRIMARY_COLOR') || APP_CONFIG.PRIMARY_COLOR;
+}
+
+$('#btnSaveSettings').addEventListener('click', () => {
+  localStorage.setItem('API_BASE', $('#cfg_api_base').value);
+  localStorage.setItem('API_KEY', $('#cfg_api_key').value);
+  localStorage.setItem('COMPANY_NAME', $('#cfg_company_name').value);
+  localStorage.setItem('PRIMARY_COLOR', $('#cfg_color').value);
+  alert('تم حفظ الإعدادات بنجاح. أعد تحميل الصفحة لتطبيقها.');
+});
+
+document.addEventListener('DOMContentLoaded', loadSettings);
