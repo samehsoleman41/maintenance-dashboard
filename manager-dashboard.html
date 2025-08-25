@@ -26,6 +26,7 @@
     .pill-cancel{ background:#eee; color:#555 }
     .form-control,.form-select{ border-radius:.8rem }
     .offcanvas{ width:min(560px, 100vw) }
+    .cursor-pointer{ cursor:pointer }
   </style>
 
   <!-- PWA -->
@@ -40,13 +41,13 @@
         <i class="fa-solid fa-screwdriver-wrench me-2"></i><span id="brandName">مصر تكنولوجى</span>
       </a>
       <div class="d-flex gap-2">
-        <button class="btn btn-light" onclick="document.getElementById('xlsCustomers').click()">
+        <button class="btn btn-light" id="btnImportCustomers">
           <i class="fa-solid fa-file-excel me-1"></i> استيراد عملاء
         </button>
+        <input id="xlsCustomers" type="file" accept=".xlsx,.xls,.csv" hidden>
         <button class="btn btn-light" onclick="window.print()">
           <i class="fa-solid fa-print me-1"></i> طباعة
         </button>
-        <input id="xlsCustomers" type="file" accept=".xlsx,.xls,.csv" hidden>
       </div>
     </div>
   </nav>
@@ -57,7 +58,7 @@
     <div class="row g-3 align-items-end mb-3">
       <div class="col-md-4">
         <label class="form-label">بحث</label>
-        <input id="q" class="form-control" placeholder="ابحث باسم العميل / رقم التذكرة / نوع الجهاز" />
+        <input id="q" class="form-control" placeholder="ابحث باسم العميل / رقم التذكرة / نوع الجهاز / ملاحظات" />
       </div>
       <div class="col-md-2">
         <label class="form-label">المهندس</label>
@@ -90,7 +91,6 @@
       <div class="ms-auto d-flex gap-2">
         <button id="btnExportCSV" class="btn btn-success"><i class="fa-solid fa-file-csv me-1"></i> CSV</button>
         <button id="btnExportXLSX" class="btn btn-success"><i class="fa-solid fa-file-excel me-1"></i> Excel</button>
-        <!-- زر إنشاء تذكرة -->
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#mdlNew">
           <i class="fa-solid fa-plus me-1"></i> تذكرة جديدة
         </button>
@@ -114,12 +114,13 @@
             <span class="pill pill-new">جديد</span>
             <span class="pill pill-inp ms-1">قيد التنفيذ</span>
             <span class="pill pill-done ms-1">مكتمل</span>
+            <span class="pill pill-cancel ms-1">ملغي</span>
           </div>
         </div>
         <div class="table-responsive">
           <table id="tbl" class="table table-striped align-middle" style="width:100%">
             <thead><tr>
-              <th>رقم</th><th>العميل</th><th>المهندس</th><th>الحالة</th><th>التاريخ</th>
+              <th>رقم</th><th>العميل</th><th>الهاتف</th><th>المهندس</th><th>الحالة</th><th>تاريخ الفتح</th>
               <th>العربون</th><th>الإجمالي</th><th>صور</th><th>إسناد</th><th>إجراءات</th>
             </tr></thead>
             <tbody></tbody>
@@ -137,7 +138,7 @@
         <div class="modal-body">
           <div class="row g-2">
             <div class="col-md-4"><label class="form-label">اسم العميل</label><input id="n_customer" class="form-control"></div>
-            <div class="col-md-4"><label class="form-label">الهاتف</label><input id="n_phone" class="form-control"></div>
+            <div class="col-md-4"><label class="form-label">الهاتف</label><input id="n_phone" class="form-control" placeholder="01xxxxxxxxx"></div>
             <div class="col-md-4"><label class="form-label">العنوان</label><input id="n_address" class="form-control"></div>
             <div class="col-md-4"><label class="form-label">نوع الجهاز</label><input id="n_device" class="form-control"></div>
             <div class="col-md-8"><label class="form-label">وصف المشكلة</label><input id="n_problem" class="form-control"></div>
@@ -164,6 +165,45 @@
     </div>
   </div>
 
+  <!-- Offcanvas تفاصيل/تعديل -->
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="sheetTicket">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title">تفاصيل التذكرة <span id="t_id" class="text-muted"></span></h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div class="small text-muted mb-2" id="t_status"></div>
+      <div class="mb-3">
+        <label class="form-label">ملاحظات الطلب</label>
+        <textarea id="t_order_notes" class="form-control" rows="3" placeholder="ملاحظات للعميل أو الإدارة"></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">ملاحظات المهندس</label>
+        <textarea id="t_engineer_notes" class="form-control" rows="3" placeholder="يملؤها المهندس من طريقته"></textarea>
+      </div>
+      <div class="row g-2">
+        <div class="col-6">
+          <label class="form-label">العربون</label>
+          <input id="t_deposit" type="number" class="form-control" min="0">
+        </div>
+        <div class="col-6">
+          <label class="form-label">الإجمالي</label>
+          <input id="t_total" type="number" class="form-control" min="0">
+        </div>
+        <div class="col-12">
+          <label class="form-label">موعد التسليم (اختياري)</label>
+          <input id="t_due" type="datetime-local" class="form-control">
+        </div>
+      </div>
+      <div class="d-flex gap-2 mt-3">
+        <button id="btnSaveTicket" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i> حفظ</button>
+        <button id="btnMarkDone" class="btn btn-success"><i class="fa-solid fa-circle-check me-1"></i> إغلاق كتامة</button>
+      </div>
+      <hr>
+      <div id="t_images" class="d-flex flex-wrap gap-2"></div>
+    </div>
+  </div>
+
   <!-- Libs -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -177,8 +217,8 @@
 
     // ============ تحميل الإعدادات من config.json + دعم ?key= =============
     window.APP_CONFIG = {
-      API_BASE: '',
-      API_KEY: '',
+      API_BASE: '',              // مثال: https://script.google.com/macros/s/XXXX/exec
+      API_KEY: '',               // يُمكن تمريره مرة عبر ?key=XXXX وسيُخزن محليًا
       DEFAULT_COUNTRY_CODE: '20',
       COMPANY_NAME: 'لوحة إدارة الصيانة',
       PRIMARY_COLOR: '#f97316',
@@ -226,19 +266,31 @@
     async function fetchTickets(){
       const j = await apiGET(`${APP_CONFIG.API_BASE}?fn=listAll&key=${encodeURIComponent(APP_CONFIG.API_KEY)}`);
       return (j.data||[]).map(t=>({
-        id:t.ticket_id, customer:t.customer_name, tech:t.assigned_to||'', status:t.status||'new', date:t.opened_at||'',
-        dep:+(t.deposit||0), tot:+(t.total||0), notes:t.order_notes||'', images:(t.device_images||'')
+        id:t.ticket_id,
+        customer:t.customer_name,
+        phone:t.phone||'',
+        tech:t.assigned_to||'',
+        status:t.status||'new',
+        date:t.opened_at||'',
+        dep:+(t.deposit||0),
+        tot:+(t.total||0),
+        notes:t.order_notes||'',
+        images:(t.device_images||''),
+        raw:t
       }));
     }
     async function fetchTechs(){
       const j = await apiGET(`${APP_CONFIG.API_BASE}?fn=listTechs&key=${encodeURIComponent(APP_CONFIG.API_KEY)}`);
-      return (j.data||[]).map(x=>x.name).filter(Boolean);
+      return (j.data||[]);
     }
     async function assignTicket(payload){ return apiPOST({ fn:'assignTicket', payload }); }
+    async function updateTicket(payload){ return apiPOST({ fn:'updateTicket', payload }); }
+    async function addTicket(payload){ return apiPOST({ fn:'addTicket', payload }); }
+    async function upsertCustomersBulk(rows){ return apiPOST({ fn:'upsertCustomersBulk', payload:{ rows } }); }
 
     function fillTechFilters(){
       const sel=$('#fltTech'); sel.innerHTML=''; sel.insertAdjacentHTML('beforeend','<option value="">كل المهندسين</option>');
-      TECHS.forEach(n=> sel.insertAdjacentHTML('beforeend',`<option>${n}</option>`));
+      TECHS.forEach(x=> sel.insertAdjacentHTML('beforeend',`<option value="${x.name}">${x.name}</option>`));
     }
 
     function refreshTable(rows){
@@ -249,27 +301,52 @@
         const photos = imgs.length?`<a href="${imgs[0]}" target="_blank">${imgs.length} صورة</a>`:'—';
         const ageDays = r.date ? Math.floor((Date.now()-new Date(r.date).getTime())/86400000) : 0;
         const overdue = (r.status!=='done' && ageDays>=3) ? '<span class="badge bg-danger ms-1">متأخرة</span>' : '';
-        tb.insertAdjacentHTML('beforeend',`<tr>
+        tb.insertAdjacentHTML('beforeend',`<tr class="cursor-pointer" data-id="${r.id}">
           <td>${r.id}</td>
           <td>${r.customer||''} ${overdue}</td>
+          <td>${r.phone?`<a href="tel:${r.phone}">${r.phone}</a>`:'—'}</td>
           <td>${r.tech||''}</td>
           <td>${statusPill(r.status)}</td>
-          <td>${r.date||''}</td>
+          <td>${r.date? new Date(r.date).toLocaleString('ar-EG'):''}</td>
           <td>${r.dep||0}</td>
           <td>${r.tot||0}</td>
           <td>${photos}</td>
-          <td><button class="btn btn-sm btn-outline-primary" onclick="openAssign('${r.id}','${(r.customer||'').replace(/'/g,'&#39;')}')">إسناد</button></td>
-          <td class="text-nowrap"><button class="btn btn-sm btn-outline-secondary" onclick="copyLink()">نسخ رابط</button></td>
+          <td><button class="btn btn-sm btn-outline-primary" data-assign="${r.id}">إسناد</button></td>
+          <td class="text-nowrap">
+            <button class="btn btn-sm btn-outline-secondary" data-copylink>نسخ رابط</button>
+            ${r.phone?`<a class="btn btn-sm btn-outline-success" target="_blank" href="https://wa.me/${APP_CONFIG.DEFAULT_COUNTRY_CODE}${r.phone.replace(/\D/g,'')}">واتساب</a>`:''}
+          </td>
         </tr>`);
       });
       dt = new DataTable('#tbl', { language:{ url:'https://cdn.datatables.net/plug-ins/1.13.6/i18n/ar.json' }, pageLength:10 });
+
+      // صف أحداث الجدول (فتح الشِيت الجانبي + إسناد + نسخ رابط)
+      tb.querySelectorAll('tr').forEach(tr=>{
+        tr.addEventListener('click', e=>{
+          const id = tr.getAttribute('data-id');
+          if(!id) return; // الأزرار المخصصة لها handlers أدناه
+          const isButton = e.target.closest('button');
+          if(isButton) return;
+          openTicketSheet(id);
+        });
+      });
+      tb.querySelectorAll('[data-assign]').forEach(btn=> btn.addEventListener('click', e=>{
+        e.stopPropagation();
+        openAssign(btn.getAttribute('data-assign'));
+      }));
+      tb.querySelectorAll('[data-copylink]').forEach(btn=> btn.addEventListener('click', e=>{
+        e.stopPropagation();
+        navigator.clipboard.writeText(location.href.split('#')[0]);
+      }));
 
       // KPIs
       $('#kpiTotal').textContent = rows.length;
       $('#kpiInProg').textContent = rows.filter(t=>t.status==='in_progress').length;
       $('#kpiDone').textContent   = rows.filter(t=>t.status==='done').length;
-      const month = new Date().toISOString().slice(0,7);
-      const rev = rows.filter(t=> (t.date||'').startsWith(month)).reduce((a,b)=> a + (Number(b.tot)||0), 0);
+      const now = new Date();
+      const y = now.getFullYear(), m = (now.getMonth()+1).toString().padStart(2,'0');
+      const month = `${y}-${m}`;
+      const rev = rows.filter(t=> (t.date||'').toString().startsWith(month)).reduce((a,b)=> a + (Number(b.tot)||0), 0);
       $('#kpiRevenue').textContent = rev.toLocaleString('ar-EG') + ' ج';
     }
 
@@ -287,44 +364,121 @@
       refreshTable(rows);
     }
 
-    window.copyLink = ()=>{ navigator.clipboard.writeText(location.href.split('#')[0]); alert('تم نسخ رابط الصفحة.'); };
-
-    window.openAssign = async (id, customer)=>{
-      const engineer = prompt('اسم المهندس المكلّف؟ (اختر من القائمة):\n' + TECHS.join(', '));
+    async function openAssign(id){
+      const engineer = await pickEngineer();
       if(!engineer) return;
       const phone = prompt('هاتف العميل (اختياري)?','');
       const summary = prompt('ملخص قصير للتذكرة/الموعد؟','');
       try{
-        await assignTicket({ ticket_id:id, engineer, phone, summary, customer_name:customer });
-        alert('تم الإسناد (وتم إرسال الإشعار من السكربت إذا كان مفعّل).');
+        await assignTicket({ ticket_id:id, engineer, phone, summary, customer_name: (ALL.find(x=>x.id===id)?.customer)||'' });
+        alert('تم الإسناد (وسيُرسل الإشعار من السكربت إذا كان مفعّل).');
         await reloadAll();
       }catch(e){ alert('تعذّر الإسناد: '+e.message); }
-    };
-
-    async function reloadAll(){
-      ALL = await fetchTickets();
-      try { TECHS = await fetchTechs(); } catch(e) { TECHS=[]; }
-      // تعبئة اختيار المهندسين في نموذج الإضافة
-      const sel = document.getElementById('n_engineer');
-      if (sel) sel.innerHTML = '<option value="">— بدون —</option>' + TECHS.map(n=>`<option>${n}</option>`).join('');
-      fillTechFilters();
-      refreshTable(ALL);
     }
 
+    function pickEngineer(){
+      return new Promise(resolve=>{
+        const names = TECHS.map(t=>t.name).filter(Boolean);
+        if(!names.length){ alert('لا يوجد مهندسون — أضف مهندسًا أولًا.'); return resolve(''); }
+        const name = prompt('اسم المهندس المكلّف؟ (اختر من القائمة):\n' + names.join(', '));
+        resolve(name||'');
+      });
+    }
+
+    // ======= استيراد العملاء من ملف =======
+    $('#btnImportCustomers').addEventListener('click', ()=> $('#xlsCustomers').click());
+    $('#xlsCustomers').addEventListener('change', async (ev)=>{
+      const f = ev.target.files && ev.target.files[0]; if(!f) return;
+      const ab = await f.arrayBuffer();
+      const wb = XLSX.read(ab, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws);
+      // نتوقع أعمدة: name, phone, address (حروف صغيرة)
+      const clean = rows.map(r=>({
+        name: (r.name||r['اسم']||'').toString().trim(),
+        phone: (r.phone||r['هاتف']||'').toString().trim(),
+        address: (r.address||r['عنوان']||'').toString().trim()
+      })).filter(x=> x.phone);
+      if(!clean.length) return alert('لم يتم العثور على صفوف صالحة. تأكد من الأعمدة: name, phone, address');
+      try{
+        await upsertCustomersBulk(clean);
+        alert('تم استيراد/تحديث العملاء: '+clean.length);
+      }catch(e){ alert('فشل الاستيراد: '+e.message); }
+      ev.target.value='';
+    });
+
+    // ======= فتح شيت التفاصيل الجانبي =======
+    let currentTicket = null;
+    const offEl = document.getElementById('sheetTicket');
+    const off = new bootstrap.Offcanvas(offEl);
+
+    function openTicketSheet(id){
+      const t = ALL.find(x=> x.id===id); if(!t) return;
+      currentTicket = t;
+      $('#t_id').textContent = '#'+t.id;
+      $('#t_status').innerHTML = statusPill(t.status);
+      $('#t_order_notes').value = t.raw.order_notes||'';
+      $('#t_engineer_notes').value = t.raw.engineer_notes||'';
+      $('#t_deposit').value = t.dep||0;
+      $('#t_total').value = t.tot||0;
+      $('#t_due').value = t.raw.due_at ? fmtLocalInputDate(new Date(t.raw.due_at)) : '';
+      // صور
+      const wrap = document.getElementById('t_images'); wrap.innerHTML='';
+      (t.images||'').split('\n').filter(Boolean).forEach(u=>{
+        const a = document.createElement('a'); a.href=u; a.target='_blank';
+        const img=document.createElement('img'); img.src=u; img.style.width='96px'; img.style.height='96px'; img.style.objectFit='cover'; img.className='rounded';
+        a.appendChild(img); wrap.appendChild(a);
+      });
+      off.show();
+    }
+
+    function fmtLocalInputDate(d){
+      const pad=n=>n.toString().padStart(2,'0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    document.getElementById('btnSaveTicket').addEventListener('click', async ()=>{
+      if(!currentTicket) return;
+      try{
+        await updateTicket({
+          ticket_id: currentTicket.id,
+          order_notes: $('#t_order_notes').value,
+          engineer_notes: $('#t_engineer_notes').value,
+          deposit: Number($('#t_deposit').value||0),
+          total: Number($('#t_total').value||0),
+          due_at: $('#t_due').value || null
+        });
+        alert('تم الحفظ');
+        off.hide();
+        await reloadAll();
+      }catch(e){ alert('تعذر الحفظ: '+e.message); }
+    });
+    document.getElementById('btnMarkDone').addEventListener('click', async ()=>{
+      if(!currentTicket) return;
+      if(!confirm('إغلاق التذكرة؟')) return;
+      try{
+        await updateTicket({ ticket_id: currentTicket.id, markDone:true });
+        alert('تم الإغلاق');
+        off.hide();
+        await reloadAll();
+      }catch(e){ alert('تعذر الإغلاق: '+e.message); }
+    });
+
+    // ======= Export =======
     function exportCSV(rows){
-      const header=['id','customer','tech','status','date','dep','tot','notes'];
+      const header=['id','customer','phone','tech','status','date','dep','tot','notes'];
       const csv=[header.join(',')].concat(rows.map(r=> header.map(h=> JSON.stringify(r[h]??'')).join(','))).join('\n');
       const blob=new Blob([csv], {type:'text/csv;charset=utf-8;'});
       const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='tickets.csv'; a.click(); URL.revokeObjectURL(url);
     }
     function exportXLSX(rows){ const ws=XLSX.utils.json_to_sheet(rows); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Tickets'); XLSX.writeFile(wb, 'tickets.xlsx'); }
-    $('#btnExportCSV').onclick = ()=> exportCSV(ALL);
-    $('#btnExportXLSX').onclick = ()=> exportXLSX(ALL);
+    document.getElementById('btnExportCSV').onclick = ()=> exportCSV(ALL);
+    document.getElementById('btnExportXLSX').onclick = ()=> exportXLSX(ALL);
 
-    // إنشاء التذكرة من المودال
+    // ======= إنشاء التذكرة =======
     document.getElementById('btnCreate').addEventListener('click', async ()=>{
       const data = {
-        ticket_id: 'T-' + Date.now(),
+        // backend لديه api_addTicket_ الذي ينشئ id إذا لم يُرسل — نرسل فراغ
         customer_name: document.getElementById('n_customer').value.trim(),
         phone: document.getElementById('n_phone').value.trim(),
         address: document.getElementById('n_address').value.trim(),
@@ -335,7 +489,7 @@
       };
       if (!data.customer_name) return alert('أدخل اسم العميل');
       try{
-        await apiPOST({ fn:'addTicket', payload:data });
+        await addTicket(data);
         alert('تم إنشاء التذكرة');
         bootstrap.Modal.getInstance(document.getElementById('mdlNew')).hide();
         await reloadAll();
@@ -350,6 +504,19 @@
       $('#btnSearch').addEventListener('click', applyFilters);
       $('#btnReset').addEventListener('click', async ()=>{ $('#q').value=''; $('#fltTech').value=''; $('#fltStatus').value=''; $('#from').value=''; $('#to').value=''; await reloadAll(); });
     }
+
+    async function reloadAll(){
+      ALL = await fetchTickets();
+      try { TECHS = await fetchTechs(); } catch(e) { TECHS=[]; }
+      // تعبئة اختيار المهندسين في نموذج الإضافة
+      const sel = document.getElementById('n_engineer');
+      if (sel) sel.innerHTML = '<option value="">— بدون —</option>' + TECHS.map(t=>`<option>${t.name}</option>`).join('');
+      fillTechFilters();
+      refreshTable(ALL);
+    }
+
+    // اجعل الدالة متاحة بعد تحميل config
+    window.__app_boot = __app_boot;
   </script>
 </body>
 </html>
