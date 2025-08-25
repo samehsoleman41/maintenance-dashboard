@@ -16,4 +16,4 @@
 
 ## ملاحظات
 - تأكد أن Web App في Apps Script متاح "Anyone with the link".
-- لو بعدين نشرت نسخة إنتاجية (رابط /exec)، حدّث API_BASE في config.json.
+- لو بعدين نشرت نسخة إنتاجية (رابط /exec)، حدّث API_BASE في config.json.ظ
