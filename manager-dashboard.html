@@ -1,859 +1,533 @@
-/**************************************************************
- * Maintenance Tickets Backend (Google Apps Script Web App)
- * Sheets: Tickets, Technicians, PulledParts, Logs, Settings, Customers
- * Features:
- *  - REST endpoints للمدير/المهندس
- *  - صور على Drive (Anyone with link)
- *  - إشعارات واتساب/تلغرام (debounced)
- *  - إعدادات مركزية + سياسات إلزام
- *  - إضافة/استيراد عملاء + تمييز جديد/قديم
- *  - تعيين تذاكر + روابط مباشرة
- *  - Overdue cron + Backup XLSX
- **************************************************************/
-/******** ONE-TIME HEADER FIX ********/
-/**************** ONE-TIME MIGRATION: Fix/Normalize Headers ****************/
-// 1) لو سكربت Standalone؛ خلي الشيت يتحدد بالـ SS_ID في Script Properties
-function getSS_(){
-  const sp = PropertiesService.getScriptProperties();
-  const id = sp.getProperty('SS_ID');
-  if (id) { try { return SpreadsheetApp.openById(id); } catch(e){} }
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (!ss) throw new Error('لم يتم تحديد ملف الشيت. ضع SS_ID في Script Properties أو افتح السكربت من داخل الشيت ثم أعد المحاولة.');
-  sp.setProperty('SS_ID', ss.getId());
-  return ss;
-}
-function SH_(name){ const ss=getSS_(); return ss.getSheetByName(name) || ss.insertSheet(name); }
+# manager-dashboard.html (final)
 
-// 2) الهيدر القياسي (يجب أن يطابق CFG.TICKETS_HEADER المستخدم في كودك)
-const TICKETS_HEADER_STANDARD = [
-  'ticket_id','customer_id','customer_name','phone','address','device_type','problem_desc',
-  'status','assigned_to','assigned_to_id','opened_at','closed_at','deposit','total',
-  'address_detail','order_notes','engineer_notes','pulled_parts','device_images','due_at','last_update'
-];
+```html
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>مصر تكنولوجى — لوحة المدير</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#f97316">
+  <style>
+    :root { --primary:#f97316; --bg:#faf8f5; --card:#fff; --text:#111 }
+    body { font-family:'Tajawal', system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text) }
+    .navbar { background:var(--primary)!important }
+    .btn-primary { background:var(--primary); border-color:var(--primary) }
+    .btn-primary:hover { filter:brightness(.95) }
+    .card { border:none; border-radius:1rem; box-shadow:0 6px 18px rgba(0,0,0,.06) }
+    .pill{ border-radius:999px; font-size:.75rem; padding:.25rem .6rem; display:inline-block }
+    .pill-new{ background:#fff4ea; color:var(--primary) }
+    .pill-inp{ background:#eaf6ff; color:#0ea5e9 }
+    .pill-done{ background:#eafaf0; color:#16a34a }
+    .pill-cancel{ background:#eee; color:#555 }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="#">
+        <i class="fa-solid fa-screwdriver-wrench me-2"></i><span id="brandName">مصر تكنولوجى</span>
+      </a>
+      <div class="d-flex gap-2">
+        <button class="btn btn-light" onclick="document.getElementById('xlsCustomers').click()">
+          <i class="fa-solid fa-file-excel me-1"></i> استيراد عملاء
+        </button>
+        <button class="btn btn-light" onclick="window.print()">
+          <i class="fa-solid fa-print me-1"></i> طباعة
+        </button>
+        <input id="xlsCustomers" type="file" accept=".xlsx,.xls,.csv" hidden>
+      </div>
+    </div>
+  </nav>
 
-// 3) خريطة ترجمة أسماء الأعمدة الشائعة (AR → EN)
-const TICKETS_HEADER_MAP = {
-  // أساسي
-  'معرف التذكرة':'ticket_id','رقم التذكرة':'ticket_id','id':'ticket_id',
-  'customer_id':'customer_id','معرف العميل':'customer_id',
-  'customer_name':'customer_name','اسم العميل':'customer_name','العميل':'customer_name',
-  'phone':'phone','الهاتف':'phone','تليفون':'phone','رقم الهاتف':'phone',
-  'address':'address','العنوان':'address',
-  'device_type':'device_type','نوع الجهاز':'device_type','الجهاز':'device_type',
-  'problem_desc':'problem_desc','وصف المشكلة':'problem_desc','المشكلة':'problem_desc',
-  'status':'status','الحالة':'status',
-  'assigned_to':'assigned_to','المهندس':'assigned_to',
-  'assigned_to_id':'assigned_to_id','معرف المهندس':'assigned_to_id',
+  <div class="container py-4">
+    <div class="row g-3 align-items-end mb-3">
+      <div class="col-md-4">
+        <label class="form-label">بحث</label>
+        <input id="q" class="form-control" placeholder="ابحث باسم العميل / رقم التذكرة / نوع الجهاز" />
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">المهندس</label>
+        <select id="fltTech" class="form-select"></select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">الحالة</label>
+        <select id="fltStatus" class="form-select">
+          <option value="">كل الحالات</option>
+          <option value="new">new</option>
+          <option value="in_progress">in_progress</option>
+          <option value="done">done</option>
+          <option value="cancelled">cancelled</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">من</label>
+        <input id="from" type="date" class="form-control" />
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">إلى</label>
+        <input id="to" type="date" class="form-control" />
+      </div>
+    </div>
 
-  'opened_at':'opened_at','تاريخ الفتح':'opened_at','فتح بتاريخ':'opened_at',
-  'closed_at':'closed_at','تاريخ الإغلاق':'closed_at','اغلاق بتاريخ':'closed_at',
+    <div class="d-flex gap-2 mb-3">
+      <button id="btnSearch" class="btn btn-primary"><i class="fa-solid fa-filter me-1"></i> بحث</button>
+      <button id="btnReset" class="btn btn-outline-secondary"><i class="fa-solid fa-rotate-left me-1"></i> مسح</button>
+      <div class="ms-auto d-flex gap-2">
+        <button id="btnExportCSV" class="btn btn-success"><i class="fa-solid fa-file-csv me-1"></i> CSV</button>
+        <button id="btnExportXLSX" class="btn btn-success"><i class="fa-solid fa-file-excel me-1"></i> Excel</button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#mdlNew">
+          <i class="fa-solid fa-plus me-1"></i> تذكرة جديدة
+        </button>
+      </div>
+    </div>
 
-  'deposit':'deposit','العربون':'deposit',
-  'total':'total','الإجمالي':'total',
+    <div class="row g-3 mb-3">
+      <div class="col-sm-6 col-lg-3"><div class="card p-3 text-white" style="background:var(--primary)"><div class="small opacity-75">إجمالي التذاكر</div><div class="h4 m-0" id="kpiTotal">0</div></div></div>
+      <div class="col-sm-6 col-lg-3"><div class="card p-3 text-white" style="background:#0ea5e9"><div class="small opacity-75">قيد التنفيذ</div><div class="h4 m-0" id="kpiInProg">0</div></div></div>
+      <div class="col-sm-6 col-lg-3"><div class="card p-3 text-white" style="background:#22c55e"><div class="small opacity-75">مكتملة</div><div class="h4 m-0" id="kpiDone">0</div></div></div>
+      <div class="col-sm-6 col-lg-3"><div class="card p-3 text-white" style="background:#a78bfa"><div class="small opacity-75">إيراد الشهر</div><div class="h4 m-0" id="kpiRevenue">0</div></div></div>
+    </div>
 
-  'address_detail':'address_detail','العنوان التفصيلي':'address_detail',
-  'order_notes':'order_notes','ملاحظات الطلب':'order_notes','ملاحظات':'order_notes',
-  'engineer_notes':'engineer_notes','ملاحظات المهندس':'engineer_notes',
-  'pulled_parts':'pulled_parts','قطع مسحوبة':'pulled_parts',
-  'device_images':'device_images','صور الجهاز':'device_images','الصور':'device_images',
-  'due_at':'due_at','تاريخ الاستحقاق':'due_at',
-  'last_update':'last_update','آخر تحديث':'last_update'
-};
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <h5 class="m-0">التذاكر</h5>
+          <div>
+            <span class="pill pill-new">جديد</span>
+            <span class="pill pill-inp ms-1">قيد التنفيذ</span>
+            <span class="pill pill-done ms-1">مكتمل</span>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table id="tbl" class="table table-striped align-middle" style="width:100%">
+            <thead><tr>
+              <th>رقم</th><th>العميل</th><th>المهندس</th><th>الحالة</th><th>التاريخ</th>
+              <th>العربون</th><th>الإجمالي</th><th>صور</th><th>إسناد</th><th>إجراءات</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
 
-// 4) تطبيع هيدر ورقة Tickets: يعيد تسمية الأعمدة العربية → الإنجليزية ويضيف الناقص
-function normalizeTicketsHeaders_(){
-  const sh = SH_('Tickets');
-  if (sh.getLastRow() === 0) sh.appendRow(TICKETS_HEADER_STANDARD); // لو فاضية تمامًا
-  const lastCol = Math.max(1, sh.getLastColumn());
-  const hdr = sh.getRange(1,1,1,lastCol).getValues()[0];
+    <!-- اتصال السيرفر -->
+    <div class="card mt-4">
+      <div class="card-body">
+        <h5 class="mb-3"><i class="fa-solid fa-plug me-1"></i> اتصال السيرفر</h5>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">API Base URL</label>
+            <input id="cn_api" class="form-control" placeholder="https://script.google.com/macros/s/AKfycbw5JAAzQciOSl2z0XtKG5bqk2JkifVPLMMrPou2Ns0xXeOehE0-12z3u0qTdgXxIFwI/exec">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">API Key</label>
+            <input id="cn_key" class="form-control" placeholder="f642937d-fb1">
+          </div>
+          <div class="col-md-2 d-grid">
+            <label class="form-label invisible">—</label>
+            <button id="btnConnSave" class="btn btn-primary"><i class="fa-solid fa-save me-1"></i> حفظ</button>
+          </div>
+        </div>
+        <div class="mt-3 d-flex gap-2">
+          <button id="btnConnTest" class="btn btn-outline-success"><i class="fa-solid fa-vial me-1"></i> اختبار الاتصال</button>
+          <button id="btnConnClear" class="btn btn-outline-danger"><i class="fa-solid fa-trash me-1"></i> مسح التخزين المحلي</button>
+        </div>
+      </div>
+    </div>
 
-  // أ. إعادة تسمية الأعمدة حسب الخريطة
-  const newHdr = hdr.map(h => {
-    const key = String(h || '').trim();
-    if (!key) return '';
-    // جرّب تطبيع مباشر أو Lower-case للمفاتيح الإنجليزية
-    const mapped = TICKETS_HEADER_MAP[key] || TICKETS_HEADER_MAP[key.toLowerCase()] || key;
-    return mapped;
-  });
+    <!-- إعدادات التطبيق -->
+    <div class="card mt-4">
+      <div class="card-body">
+        <h5 class="mb-3"><i class="fa-solid fa-gear me-1"></i> إعدادات التطبيق</h5>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">اسم الشركة</label>
+            <input id="st_company" class="form-control" placeholder="مثال: مصر تكنولوجى">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">اللون الرئيسي</label>
+            <input id="st_color" type="color" class="form-control form-control-color">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">الخط</label>
+            <input id="st_font" class="form-control" placeholder="Tajawal">
+          </div>
 
-  // ب. اكتب أسماء الأعمدة المطبوعة
-  sh.getRange(1,1,1,newHdr.length).setValues([newHdr]);
+          <div class="col-12"><hr></div>
 
-  // ج. أضف أي أعمدة قياسية ناقصة في نهاية الهيدر (مع حفظ البيانات القائمة كما هي)
-  const have = new Set(newHdr.filter(Boolean));
-  const missing = TICKETS_HEADER_STANDARD.filter(k => !have.has(k));
-  if (missing.length){
-    const start = sh.getLastColumn()+1;
-    missing.forEach((name, i)=>{
-      // إنشاء عمود جديد ووضع اسمه في الصف الأول
-      const col = start + i;
-      // نضمن وجود هذا العمود فعليًا
-      if (col > sh.getMaxColumns()) sh.insertColumnAfter(sh.getLastColumn());
-      sh.getRange(1, col, 1, 1).setValue(name);
-    });
-  }
-  SpreadsheetApp.flush();
-  return { ok:true, message:'Tickets header normalized', header: readHeader_(sh) };
-}
+          <div class="col-md-3">
+            <label class="form-label">إلزام العنوان التفصيلي</label>
+            <select id="st_req_addr" class="form-select"><option value="true">تشغيل</option><option value="false">تعطيل</option></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">إلزام الملاحظات/التشخيص</label>
+            <select id="st_req_notes" class="form-select"><option value="true">تشغيل</option><option value="false">تعطيل</option></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">إلزام الصور عند الإغلاق</label>
+            <select id="st_req_photo" class="form-select"><option value="true">تشغيل</option><option value="false">تعطيل</option></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">إشعارات واتساب</label>
+            <select id="st_notify_wa" class="form-select"><option value="true">تشغيل</option><option value="false">تعطيل</option></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">إشعارات تيليجرام</label>
+            <select id="st_notify_tg" class="form-select"><option value="true">تشغيل</option><option value="false">تعطيل</option></select>
+          </div>
 
-// 5) تطبيع هيدر ورقة Technicians
-function normalizeTechsHeaders_(){
-  const sh = SH_('Technicians');
-  const want = ['tech_id','name','phone'];
-  if (sh.getLastRow() === 0) { sh.appendRow(want); return { ok:true, header:want }; }
+          <div class="col-12 text-end">
+            <button id="btnSaveSettings" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i> حفظ الإعدادات</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
-  const lastCol = Math.max(1, sh.getLastColumn());
-  const hdr = sh.getRange(1,1,1,lastCol).getValues()[0].map(x=>String(x||'').trim());
+  </div>
 
-  const map = { 'معرف المهندس':'tech_id','id':'tech_id','الاسم':'name','الهاتف':'phone','تليفون':'phone' };
-  const newHdr = hdr.map(h => map[h] || map[h.toLowerCase?.()] || h);
-  sh.getRange(1,1,1,newHdr.length).setValues([newHdr]);
+  <!-- مودال إنشاء تذكرة -->
+  <div class="modal fade" id="mdlNew" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header"><h6 class="modal-title">إنشاء تذكرة</h6><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="row g-2">
+            <div class="col-md-4"><label class="form-label">اسم العميل</label><input id="n_customer" class="form-control"></div>
+            <div class="col-md-4"><label class="form-label">الهاتف</label><input id="n_phone" class="form-control"></div>
+            <div class="col-md-4"><label class="form-label">العنوان</label><input id="n_address" class="form-control"></div>
+            <div class="col-md-4"><label class="form-label">نوع الجهاز</label><input id="n_device" class="form-control"></div>
+            <div class="col-md-8"><label class="form-label">وصف المشكلة</label><input id="n_problem" class="form-control"></div>
+            <div class="col-md-6">
+              <label class="form-label">المهندس</label>
+              <select id="n_engineer" class="form-select"></select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">الحالة</label>
+              <select id="n_status" class="form-select">
+                <option value="new">new</option>
+                <option value="in_progress">in_progress</option>
+                <option value="done">done</option>
+                <option value="cancelled">cancelled</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">إلغاء</button>
+          <button id="btnCreate" class="btn btn-primary">حفظ</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  // أضف الناقص
-  const have = new Set(newHdr.filter(Boolean));
-  const missing = want.filter(k=> !have.has(k));
-  if (missing.length){
-    const start = sh.getLastColumn()+1;
-    missing.forEach((name, i)=>{
-      const col = start + i;
-      if (col > sh.getMaxColumns()) sh.insertColumnAfter(sh.getLastColumn());
-      sh.getRange(1, col, 1, 1).setValue(name);
-    });
-  }
-  SpreadsheetApp.flush();
-  return { ok:true, header: readHeader_(sh) };
-}
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-// 6) هيلبرز القراءة (تستخدمها الدوال أعلاه)
-function readHeader_(sh){ return sh.getRange(1,1,1,Math.max(1, sh.getLastColumn())).getValues()[0]; }
-
-// 7) دالة “كل-in-one”: شغّلها مرة واحدة
-function fixAllHeaders(){
-  const out = {};
-  out.tickets = normalizeTicketsHeaders_();
-  out.techs   = normalizeTechsHeaders_();
-
-  // باقي الشيتات الأساسية (لو ناقصة فقط)
-  const ensure = (name, hdr)=>{
-    const sh = SH_(name);
-    if (sh.getLastRow() === 0) sh.appendRow(hdr);
+  <!-- مُحمّل إعدادات مشترك -->
+  <script>
+  // ===== مُحمّل إعدادات عام =====
+  window.APP_CONFIG = {
+    API_BASE: '', API_KEY: '', DEFAULT_COUNTRY_CODE:'20',
+    COMPANY_NAME:'لوحة إدارة الصيانة', PRIMARY_COLOR:'#f97316', FONT_FAMILY:'Tajawal',
+    POLICIES:{REQUIRE_ADDRESS_DETAIL:true, REQUIRE_NOTES:true, REQUIRE_PHOTO:false, NOTIFY_WA:true, NOTIFY_TG:false}
   };
-  ensure('PulledParts', ['id','ticket_id','customer_name','tech_id','tech_name','part_name','qty','photo_file_id']);
-  ensure('Logs',        ['ts','actor','action','ticket_id','engineer','customer','details']);
-  ensure('Settings',    ['key','value']);
-  ensure('Customers',   ['customer_id','name','phone','address','first_seen','last_seen','tickets_count']);
-
-  return out;
-}
-
-function fixAllHeaders(){
-  const ss = (typeof getSS_ === 'function') ? getSS_() : SpreadsheetApp.getActiveSpreadsheet();
-  if (!ss) throw new Error('No spreadsheet. افتح السكربت من داخل الشيت أو استخدم getSS_ + SS_ID.');
-
-  // 1) Tickets
-  const shT = ss.getSheetByName('Tickets') || ss.insertSheet('Tickets');
-  shT.getRange(1,1,1, CFG.TICKETS_HEADER.length).setValues([CFG.TICKETS_HEADER]);
-
-  // 2) Technicians
-  const shX = ss.getSheetByName('Technicians') || ss.insertSheet('Technicians');
-  const techHdr = ['tech_id','name','phone'];
-  shX.getRange(1,1,1, techHdr.length).setValues([techHdr]);
-
-  // 3) باقي الشيتات الأساسية لو ناقصة
-  const ensure = (name, hdr)=> {
-    const sh = ss.getSheetByName(name) || ss.insertSheet(name);
-    sh.getRange(1,1,1,hdr.length).setValues([hdr]);
-  };
-  ensure('PulledParts', ['id','ticket_id','customer_name','tech_id','tech_name','part_name','qty','photo_file_id']);
-  ensure('Logs',       ['ts','actor','action','ticket_id','engineer','customer','details']);
-  ensure('Settings',   ['key','value']);
-  ensure('Customers',  ['customer_id','name','phone','address','first_seen','last_seen','tickets_count']);
-
-  SpreadsheetApp.flush();
-  return 'Headers fixed ✅';
-}
-
-const CFG = {
-  SHEETS: {
-    TICKETS: 'Tickets',
-    TECHS: 'Technicians',
-    PARTS: 'PulledParts',
-    LOGS: 'Logs',
-    SETTINGS: 'Settings',
-    CUSTOMERS: 'Customers'
-  },
-  PHOTOS_FOLDER: 'Service_Photos',
-  BACKUP_FOLDER: 'Backups',
-  TZ: 'Africa/Cairo',
-
-  TICKETS_HEADER: [
-    'ticket_id','customer_id','customer_name','phone','address','device_type','problem_desc',
-    'status','assigned_to','assigned_to_id','opened_at','closed_at','deposit','total',
-    'address_detail','order_notes','engineer_notes','pulled_parts','device_images','due_at','last_update'
-  ],
-  TECHS_HEADER: ['tech_id','name','phone'],
-  PARTS_HEADER: ['id','ticket_id','customer_name','tech_id','tech_name','part_name','qty','photo_file_id'],
-  LOGS_HEADER:  ['ts','actor','action','ticket_id','engineer','customer','details'],
-  SETTINGS_HEADER: ['key','value'],
-  CUSTOMERS_HEADER: ['customer_id','name','phone','address','first_seen','last_seen','tickets_count'],
-
-  DEFAULT_SETTINGS: {
-    COMPANY_NAME: 'لوحة إدارة الصيانة',
-    SUPPORT_PHONE: '',
-    SUPPORT_ADDR: '',
-    PRIMARY_COLOR: '#f97316',
-    FONT_FAMILY: 'Tajawal',
-    REQUIRE_ADDRESS_DETAIL: 'true',
-    REQUIRE_NOTES: 'true',
-    REQUIRE_PHOTO: 'false',
-    NOTIFY_WA: 'true',
-    NOTIFY_TG: 'false'
+  const $ = s=> document.querySelector(s);
+  function applyThemeFromConfig(cfg){
+    if (cfg?.PRIMARY_COLOR) document.documentElement.style.setProperty('--primary', cfg.PRIMARY_COLOR);
+    if (cfg?.FONT_FAMILY)   document.body.style.fontFamily = cfg.FONT_FAMILY + ', system-ui, -apple-system, Segoe UI, Roboto, Arial;
+    const b = document.getElementById('brandName'); if (b && cfg?.COMPANY_NAME) b.textContent = cfg.COMPANY_NAME;
   }
-};
-
-/**************************** SECURITY ****************************/
-function getApiKey_(){
-  return PropertiesService.getScriptProperties().getProperty('API_KEY') || '';
-}
-function requireApiKey_(e){
-  const k = (e?.parameter?.key)
-         || (e?.postData && JSON.parse(e.postData.contents || '{}')?.key)
-         || '';
-  if (!k || k !== getApiKey_()) throw new Error('Unauthorized: bad or missing API key');
-}
-
-/******************* INIT *******************/
-function setupAll(){
-  const ss = SpreadsheetApp.getActive();
-
-  const shT = SH_(CFG.SHEETS.TICKETS);       if (shT.getLastRow()===0) shT.appendRow(CFG.TICKETS_HEADER);
-  const shX = SH_(CFG.SHEETS.TECHS);         if (shX.getLastRow()===0) shX.appendRow(CFG.TECHS_HEADER);
-  const shP = SH_(CFG.SHEETS.PARTS);         if (shP.getLastRow()===0) shP.appendRow(CFG.PARTS_HEADER);
-  const shL = SH_(CFG.SHEETS.LOGS);          if (shL.getLastRow()===0) shL.appendRow(CFG.LOGS_HEADER);
-  const shS = SH_(CFG.SHEETS.SETTINGS);      if (shS.getLastRow()===0) shS.appendRow(CFG.SETTINGS_HEADER);
-  const shC = SH_(CFG.SHEETS.CUSTOMERS);     if (shC.getLastRow()===0) shC.appendRow(CFG.CUSTOMERS_HEADER);
-
-  // Default settings
-  const cur = getSettingsMap_();
-  const need = Object.assign({}, CFG.DEFAULT_SETTINGS, cur);
-  setSettingsMap_(need);
-
-  // Folders
-  getOrCreatePhotosFolder_();
-  getOrCreateBackupFolder_();
-
-  // Secrets defaults
-  const sp = PropertiesService.getScriptProperties();
-  if (!sp.getProperty('API_KEY')) sp.setProperty('API_KEY', Utilities.getUuid().slice(0,12));
-  if (!sp.getProperty('WHATSAPP_PHONE')) sp.setProperty('WHATSAPP_PHONE', '');
-  if (!sp.getProperty('WHATSAPP_APIKEY')) sp.setProperty('WHATSAPP_APIKEY', '');
-  if (!sp.getProperty('TELEGRAM_BOT_TOKEN')) sp.setProperty('TELEGRAM_BOT_TOKEN', '');
-  if (!sp.getProperty('TELEGRAM_CHAT_ID'))   sp.setProperty('TELEGRAM_CHAT_ID', '');
-
-  return 'Setup OK';
-}
-
-/******************* HTTP *******************/
-function jsonOrJsonp_(obj, cb){
-  const t = cb ? `${cb}(${JSON.stringify(obj)})` : JSON.stringify(obj);
-  return ContentService.createTextOutput(t)
-    .setMimeType(cb ? ContentService.MimeType.JAVASCRIPT : ContentService.MimeType.JSON);
-}
-function json_(obj){
-  return ContentService.createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function doGet(e){
-  try{
-    requireApiKey_(e);
-    const fn = e.parameter.fn || 'health';
-    const cb = e.parameter.callback || e.parameter.cb;
-
-    if (fn==='health')        return jsonOrJsonp_({ok:true, ts:new Date()}, cb);
-    if (fn==='listTickets')   return jsonOrJsonp_(api_listTickets_(e), cb);
-    if (fn==='listAll')       return jsonOrJsonp_(api_listAllTickets_(), cb);
-    if (fn==='listTechs')     return jsonOrJsonp_(api_listTechs_(), cb);
-    if (fn==='getTicket')     return jsonOrJsonp_(api_getTicket_(e), cb);
-    if (fn==='listSettings')  return jsonOrJsonp_(api_listSettings_(), cb);
-    if (fn==='getUpdates')    return jsonOrJsonp_(tg_getUpdates_(), cb);
-    if (fn==='selfTest')      return selfTestHttp_(e);
-
-    return jsonOrJsonp_({ok:false, error:'unknown fn'}, cb);
-  }catch(ex){
-    return jsonOrJsonp_({ok:false, error: ex.message}, e?.parameter?.callback||e?.parameter?.cb);
-  }
-}
-
-function doPost(e){
-  try{
-    requireApiKey_(e);
-    const body = JSON.parse(e.postData.contents||'{}');
-    const fn = body.fn;
-
-    if (fn==='updateTicket')          return json_(api_updateTicket_(body.payload||{}));
-    if (fn==='uploadPhotos')          return json_(api_uploadPhotos_(body.payload||{}));
-    if (fn==='assignTicket')          return json_(api_assignTicket_(body.payload||{}));
-    if (fn==='notify')                return json_(api_notify_(body.payload||{}));
-    if (fn==='saveSettings')          return json_(api_saveSettings_(body.payload||{}));
-    if (fn==='addCustomer')           return json_(api_addCustomer_(body.payload||{}));
-    if (fn==='createTicketAndAssign') return json_(api_createTicketAndAssign_(body.payload||{}));
-    if (fn==='upsertCustomersBulk')   return json_(api_upsertCustomersBulk_(body.payload||{}));
-    if (fn==='addTicket')             return json_(api_addTicket_(body.payload||{}));
-
-    return json_({ok:false, error:'unknown fn'});
-  }catch(ex){
-    return json_({ok:false, error: ex.message});
-  }
-}
-
-/******************* API CORE *******************/
-function withLock_(fn){
-  const lock = LockService.getScriptLock();
-  lock.tryLock(30000);
-  try{ return fn(); } finally { lock.releaseLock(); }
-}
-
-function api_listTechs_(){
-  const sh = SH_(CFG.SHEETS.TECHS);
-  const {hdr, data} = readAll_(sh);
-  const C = col_(hdr);
-  const rows = data.map(r => ({
-    tech_id: r[C('tech_id')],
-    name:    r[C('name')],
-    phone:   r[C('phone')]
-  }));
-  return {ok:true, data: rows};
-}
-
-function api_listTickets_(e){
-  const engineer = e.parameter.engineer || ''; // اسم أو tech_id
-  const status   = e.parameter.status || '';
-  const sh = SH_(CFG.SHEETS.TICKETS);
-  const {hdr, data} = readAll_(sh);
-  const C = col_(hdr);
-  const rows = data.filter(r=>{
-    let ok = true;
-    if (engineer){
-      ok = (String(r[C('assigned_to')])===engineer) || (String(r[C('assigned_to_id')])===engineer);
+  async function apiGET(url){ const r=await fetch(url,{cache:'no-store'}); const j=await r.json(); if(!j.ok) throw new Error(j.error||'API'); return j; }
+  async function apiPOST(body){ const r=await fetch(APP_CONFIG.API_BASE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({key:APP_CONFIG.API_KEY},body))}); const j=await r.json(); if(!j.ok) throw new Error(j.error||'API'); return j; }
+  window.__BOOT=(async function(){
+    const qs = new URLSearchParams(location.search); const qApi=qs.get('api'), qKey=qs.get('key'); if(qApi) localStorage.setItem('API_BASE', qApi); if(qKey) localStorage.setItem('API_KEY', qKey);
+    try{ const r=await fetch('./config.json',{cache:'no-store'}); if(r.ok){ Object.assign(APP_CONFIG, await r.json()); } }catch(_){ }
+    APP_CONFIG.API_BASE = localStorage.getItem('API_BASE') || APP_CONFIG.API_BASE || '';
+    APP_CONFIG.API_KEY  = localStorage.getItem('API_KEY')  || APP_CONFIG.API_KEY  || '';
+    applyThemeFromConfig(APP_CONFIG);
+    if(APP_CONFIG.API_BASE && APP_CONFIG.API_KEY){
+      try{ const j=await apiGET(`${APP_CONFIG.API_BASE}?fn=listSettings&key=${encodeURIComponent(APP_CONFIG.API_KEY)}`);
+        if(j?.ok&&j.data){ const S=j.data; APP_CONFIG.COMPANY_NAME=S.COMPANY_NAME??APP_CONFIG.COMPANY_NAME; APP_CONFIG.PRIMARY_COLOR=S.PRIMARY_COLOR??APP_CONFIG.PRIMARY_COLOR; APP_CONFIG.FONT_FAMILY=S.FONT_FAMILY??APP_CONFIG.FONT_FAMILY; APP_CONFIG.POLICIES={
+          REQUIRE_ADDRESS_DETAIL: String(S.REQUIRE_ADDRESS_DETAIL??'true').toLowerCase()==='true',
+          REQUIRE_NOTES: String(S.REQUIRE_NOTES??'true').toLowerCase()==='true',
+          REQUIRE_PHOTO: String(S.REQUIRE_PHOTO??'false').toLowerCase()==='true',
+          NOTIFY_WA: String(S.NOTIFY_WA??'true').toLowerCase()==='true',
+          NOTIFY_TG: String(S.NOTIFY_TG??'false').toLowerCase()==='true'}; applyThemeFromConfig(APP_CONFIG); }
+      }catch(e){ console.warn('settings:',e.message); }
     }
-    if (status) ok = ok && (String(r[C('status')]||'') === status);
-    return ok;
-  }).map(r=> rowToTicket_(hdr, r));
-  return {ok:true, data: rows};
-}
-function api_listAllTickets_(){
-  const sh = SH_(CFG.SHEETS.TICKETS);
-  const {hdr, data} = readAll_(sh);
-  return {ok:true, data: data.map(r=> rowToTicket_(hdr, r))};
-}
-function api_getTicket_(e){
-  const id = e.parameter.ticket_id;
-  const sh = SH_(CFG.SHEETS.TICKETS);
-  const {hdr, data} = readAll_(sh);
-  const C = col_(hdr);
-  for (let i=0;i<data.length;i++){
-    const r = data[i];
-    if (String(r[C('ticket_id')]) === id) return {ok:true, data: rowToTicket_(hdr, r)};
-  }
-  throw new Error('Ticket not found');
-}
-
-function api_updateTicket_(p){
-  return withLock_(()=> {
-    const sh = SH_(CFG.SHEETS.TICKETS);
-    const {hdr, data} = readAll_(sh);
-    ensureCols_(sh, hdr, ['address_detail','order_notes','engineer_notes','pulled_parts','deposit','total','closed_at','last_update','due_at','assigned_to_id']);
-    const hdr2 = readHeader_(sh); const C2 = col_(hdr2);
-    const C = col_(hdr);
-
-    for (let i=0;i<data.length;i++){
-      const r = data[i]; const row = i+2;
-      const isMine = !p.engineer || String(r[C('assigned_to')])===p.engineer || String(r[C('assigned_to_id')])===p.engineer;
-      if (String(r[C('ticket_id')]) === p.ticket_id && isMine){
-        if (p.address_detail!=null)   sh.getRange(row, C2('address_detail')+1).setValue(p.address_detail);
-        if (p.order_notes!=null)      sh.getRange(row, C2('order_notes')+1).setValue(p.order_notes);
-        if (p.engineer_notes!=null)   sh.getRange(row, C2('engineer_notes')+1).setValue(p.engineer_notes);
-        if (p.pulled_parts!=null)     sh.getRange(row, C2('pulled_parts')+1).setValue(p.pulled_parts);
-        if (p.deposit!==undefined)    sh.getRange(row, C2('deposit')+1).setValue(Number(p.deposit||0));
-        if (p.total!==undefined)      sh.getRange(row, C2('total')+1).setValue(Number(p.total||0));
-        if (p.status)                 sh.getRange(row, C2('status')+1).setValue(String(p.status));
-        if (p.due_at)                 sh.getRange(row, C2('due_at')+1).setValue(new Date(p.due_at));
-        sh.getRange(row, C2('last_update')+1).setValue(new Date());
-
-        if (p.markDone){
-          sh.getRange(row, C2('status')+1).setValue('done');
-          sh.getRange(row, C2('closed_at')+1).setValue(new Date());
-          log_('Close Ticket', p.ticket_id, p.engineer||r[C('assigned_to')], r[C('customer_name')], 'تم الإغلاق', 'لوحة المهندس');
-        } else {
-          log_('Update Ticket', p.ticket_id, p.engineer||r[C('assigned_to')], r[C('customer_name')], 'تحديث بيانات التذكرة', 'لوحة المهندس');
-        }
-        return {ok:true, updated:true};
-      }
-    }
-    throw new Error('Not found or not assigned');
+    if(typeof window.__app_boot==='function'){ window.__app_boot(); }
   });
-}
+  </script>
 
-function api_uploadPhotos_(p){
-  return withLock_(()=> {
-    const folder = getOrCreatePhotosFolder_();
-    const shT = SH_(CFG.SHEETS.TICKETS);
-    const {hdr, data} = readAll_(shT); const C = col_(hdr);
-    let rowFound = -1; let oldLinks = [];
-    for (let i=0;i<data.length;i++){
-      const r = data[i];
-      const isMine = !p.engineer || String(r[C('assigned_to')])===p.engineer || String(r[C('assigned_to_id')])===p.engineer;
-      if (String(r[C('ticket_id')])===p.ticket_id && isMine){
-        rowFound = i+2; const prev = r[C('device_images')]; if (prev) oldLinks = String(prev).split('\n').filter(Boolean);
-        break;
-      }
+  <!-- كود صفحة المدير -->
+  <script>
+    let ALL=[], TECHS=[];
+    const statusPill = s => s==='in_progress' ? '<span class="pill pill-inp">قيد التنفيذ</span>' : (s==='done' ? '<span class="pill pill-done">مكتمل</span>' : (s==='cancelled' ? '<span class="pill pill-cancel">ملغي</span>' : '<span class="pill pill-new">جديد</span>'));
+
+    async function fetchTickets(){
+      const j = await apiGET(`${APP_CONFIG.API_BASE}?fn=listAll&key=${encodeURIComponent(APP_CONFIG.API_KEY)}`);
+      return (j.data||[]).map(t=>({ id:t.ticket_id, customer:t.customer_name, tech:t.assigned_to||'', status:t.status||'new', date:(t.opened_at||''), dep:+(t.deposit||0), tot:+(t.total||0), notes:t.order_notes||'', images:(t.device_images||'') }));
     }
-    if (rowFound === -1) throw new Error('ticket not found or not assigned');
+    async function fetchTechs(){ const j=await apiGET(`${APP_CONFIG.API_BASE}?fn=listTechs&key=${encodeURIComponent(APP_CONFIG.API_KEY)}`); return (j.data||[]).map(x=>x.name).filter(Boolean); }
+    async function assignTicket(payload){ return apiPOST({ fn:'assignTicket', payload }); }
 
-    const links = [];
-    (p.photos||[]).forEach((dataUrl,k)=>{ if(!dataUrl) return;
-      const f = dataUrlToFile_(dataUrl, `${p.ticket_id}_photo_${Date.now()}_${k}.jpg`, folder, p.customer_name, p.tech_name);
-      links.push(f.getUrl());
+    function fillTechFilters(){ const sel=$('#fltTech'); sel.innerHTML=''; sel.insertAdjacentHTML('beforeend','<option value="">كل المهندسين</option>'); TECHS.forEach(n=> sel.insertAdjacentHTML('beforeend',`<option>${n}</option>`)); const nel=$('#n_engineer'); if(nel) nel.innerHTML='<option value="">— بدون —</option>'+TECHS.map(n=>`<option>${n}</option>`).join(''); }
+
+    function refreshTable(rows){ const tb=$('#tbl tbody'); tb.innerHTML=''; rows.forEach(r=>{ const imgs=(r.images||'').split('\n').filter(Boolean); const photos=imgs.length?`<a href="${imgs[0]}" target="_blank">${imgs.length} صورة</a>`:'—'; const ageDays=r.date?Math.floor((Date.now()-new Date(r.date).getTime())/86400000):0; const overdue=(r.status!=='done'&&ageDays>=3)?'<span class="badge bg-danger ms-1">متأخرة</span>':''; tb.insertAdjacentHTML('beforeend',`<tr><td>${r.id}</td><td>${r.customer||''} ${overdue}</td><td>${r.tech||''}</td><td>${statusPill(r.status)}</td><td>${r.date||''}</td><td>${r.dep||0}</td><td>${r.tot||0}</td><td>${photos}</td><td><button class="btn btn-sm btn-outline-primary" onclick="openAssign('${r.id}','${(r.customer||'').replace(/'/g,'&#39;')}')">إسناد</button></td><td class="text-nowrap"><button class="btn btn-sm btn-outline-secondary" onclick="copyLink()">نسخ رابط</button></td></tr>`); });
+      // KPIs
+      document.getElementById('kpiTotal').textContent=rows.length; document.getElementById('kpiInProg').textContent=rows.filter(t=>t.status==='in_progress').length; document.getElementById('kpiDone').textContent=rows.filter(t=>t.status==='done').length; const month=new Date().toISOString().slice(0,7); const rev=rows.filter(t=> (t.date||'').startsWith(month)).reduce((a,b)=> a + (Number(b.tot)||0), 0); document.getElementById('kpiRevenue').textContent=rev.toLocaleString('ar-EG')+' ج'; }
+
+    function applyFilters(){ const q=($('#q').value||'').toLowerCase(); const te=$('#fltTech').value; const st=$('#fltStatus').value; const f=$('#from').value; const t=$('#to').value; const rows=ALL.filter(r=>{ let ok=true; if(q) ok=ok&&(`${r.id} ${r.customer} ${r.tech} ${r.notes}`.toLowerCase().includes(q)); if(te) ok=ok&&r.tech===te; if(st) ok=ok&&r.status===st; if(f) ok=ok&&new Date(r.date)>=new Date(f); if(t) ok=ok&&new Date(r.date)<=new Date(t+'T23:59:59'); return ok; }); refreshTable(rows); }
+
+    window.copyLink=()=>{ navigator.clipboard.writeText(location.href.split('#')[0]); alert('تم نسخ رابط الصفحة.'); };
+    window.openAssign=async (id, customer)=>{ const engineer=prompt('اسم المهندس المكلّف؟ (اختر من القائمة):\n'+TECHS.join(', ')); if(!engineer) return; const phone=prompt('هاتف العميل (اختياري)?',''); const summary=prompt('ملخص قصير للتذكرة/الموعد؟',''); try{ await assignTicket({ ticket_id:id, engineer, phone, summary, customer_name:customer }); alert('تم الإسناد (قد تم إرسال إخطار من السكربت).'); await reloadAll(); }catch(e){ alert('تعذّر الإسناد: '+e.message); } };
+
+    async function reloadAll(){ ALL=await fetchTickets(); try{ TECHS=await fetchTechs(); }catch(e){ TECHS=[]; } fillTechFilters(); refreshTable(ALL); }
+
+    function exportCSV(rows){ const header=['id','customer','tech','status','date','dep','tot','notes']; const csv=[header.join(',')].concat(rows.map(r=> header.map(h=> JSON.stringify(r[h]??'')).join(','))).join('\n'); const blob=new Blob([csv], {type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='tickets.csv'; a.click(); URL.revokeObjectURL(url); }
+    function exportXLSX(rows){ const ws=XLSX.utils.json_to_sheet(rows); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Tickets'); XLSX.writeFile(wb, 'tickets.xlsx'); }
+
+    // اتصال السيرفر
+    function fillConnForm(){ $('#cn_api').value=localStorage.getItem('API_BASE')||APP_CONFIG.API_BASE||''; $('#cn_key').value=localStorage.getItem('API_KEY')||APP_CONFIG.API_KEY||''; }
+    document.addEventListener('click', (ev)=>{
+      if(ev.target.id==='btnConnSave'){ const api=$('#cn_api').value.trim(); const key=$('#cn_key').value.trim(); if(!api||!key) return alert('أدخل API Base و API Key'); localStorage.setItem('API_BASE', api); localStorage.setItem('API_KEY', key); APP_CONFIG.API_BASE=api; APP_CONFIG.API_KEY=key; alert('تم الحفظ. حدّث الصفحة.'); }
+      if(ev.target.id==='btnConnTest'){ const api=$('#cn_api').value.trim(); const key=$('#cn_key').value.trim(); if(!api||!key) return alert('أدخل API Base و API Key'); apiGET(`${api}?fn=health&key=${encodeURIComponent(key)}`).then(()=>alert('الاتصال ناجح ✅')).catch(e=>alert('فشل: '+e.message)); }
+      if(ev.target.id==='btnConnClear'){ localStorage.removeItem('API_BASE'); localStorage.removeItem('API_KEY'); alert('تم المسح. أعد التحميل أو مرّر ?api= و ?key='); }
     });
 
-    if (p.parts && p.parts.length){
-      const shP = SH_(CFG.SHEETS.PARTS);
-      const techId = String(p.engineer||'');
-      p.parts.forEach((pp,j)=>{
-        let fid = '';
-        if (pp.dataUrl){
-          const f = dataUrlToFile_(pp.dataUrl, `${p.ticket_id}_${pp.name||'part'}_${Date.now()}_${j}.jpg`, folder, p.customer_name, p.tech_name);
-          fid = f.getId(); links.push(f.getUrl());
-        }
-        shP.appendRow([
-          `PP-${Utilities.getUuid().slice(0,8)}`, p.ticket_id, p.customer_name, techId, p.tech_name||'',
-          (pp.name||'').trim(), Number(pp.qty||1), fid
-        ]);
-      });
-    }
-
-    const all = oldLinks.concat(links).join('\n');
-    const C2 = col_(readHeader_(shT));
-    shT.getRange(rowFound, C2('device_images')+1).setValue(all);
-    log_('Upload Photos', p.ticket_id, p.engineer||'', p.customer_name||'', `عدد ${links.length}`, 'لوحة المهندس');
-    return {ok:true, uploaded: links.length};
-  });
-}
-
-function api_assignTicket_(p){
-  return withLock_(()=> {
-    const sh = SH_(CFG.SHEETS.TICKETS); const {hdr, data} = readAll_(sh); const C = col_(hdr);
-    ensureCols_(sh, hdr, ['assigned_to_id']);
-    const hdr2 = readHeader_(sh); const C2 = col_(hdr2);
-
-    const shX = SH_(CFG.SHEETS.TECHS);
-    const L = readAll_(shX);
-    const CX = col_(L.hdr);
-    const byId = (L.data||[]).reduce((m,r)=> (m[String(r[CX('tech_id')])] = {name:r[CX('name')], phone:r[CX('phone')]}, m), {});
-    const byName = (L.data||[]).reduce((m,r)=> (m[String(r[CX('name')])] = {id:r[CX('tech_id')], phone:r[CX('phone')]}, m), {});
-
-    let rowFound = -1; let customerName = p.customer_name || '';
-    for (let i=0;i<data.length;i++){
-      const r = data[i];
-      if (String(r[C('ticket_id')])===p.ticket_id){ rowFound = i+2; customerName = customerName || r[C('customer_name')] || ''; break; }
-    }
-    if (rowFound === -1) throw new Error('Ticket not found');
-
-    // p.engineer قد يكون tech_id أو name
-    let techName = '', techId = '';
-    if (p.engineer && byId[p.engineer]){ techId = p.engineer; techName = byId[p.engineer].name; }
-    else if (p.engineer && byName[p.engineer]){ techName = p.engineer; techId = byName[p.engineer].id; }
-    else { techName = p.engineer||''; }
-
-    sh.getRange(rowFound, C2('assigned_to')+1).setValue(techName);
-    if (techId) sh.getRange(rowFound, C2('assigned_to_id')+1).setValue(techId);
-    sh.getRange(rowFound, C2('status')+1).setValue('new');
-
-    const msg = `تذكرة جديدة: ${p.ticket_id}\nعميل: ${customerName||'-'}\nهاتف: ${p.phone||'-'}\nموجز: ${p.summary||'-'}`;
-    const settings = getSettingsMap_();
-    if (String(settings.NOTIFY_WA||'true').toLowerCase()==='true' || String(settings.NOTIFY_TG||'false').toLowerCase()==='true'){
-      notifyAllDebounced_(`assign_${p.ticket_id}`, msg, 60);
-    }
-    log_('Assign Ticket', p.ticket_id, techName, customerName, p.summary||'', 'لوحة المدير');
-    return {ok:true, assigned:true, assigned_to: techName, assigned_to_id: techId};
-  });
-}
-
-function api_notify_(p){
-  notifyAllDebounced_('manual', p.message||'', 30);
-  log_('Notify', '', '', '', p.message||'', 'لوحة المدير');
-  return {ok:true};
-}
-
-/******** Settings ********/
-function api_listSettings_(){ return {ok:true, data: getSettingsMap_()}; }
-function api_saveSettings_(payload){ setSettingsMap_(payload||{}); return {ok:true, saved:true, data:getSettingsMap_()}; }
-
-/******** Customers ********/
-function api_addCustomer_(p){
-  return withLock_(()=> {
-    const sh = SH_(CFG.SHEETS.CUSTOMERS);
-    if (sh.getLastRow()===0) sh.appendRow(CFG.CUSTOMERS_HEADER);
-    const vals = sh.getDataRange().getValues();
-    const hdr = vals[0]; const C=(n)=>hdr.indexOf(n);
-    const normPhone = String(p.phone||'').replace(/\D/g,'');
-    for (let i=1;i<vals.length;i++){
-      const r = vals[i];
-      if (String(r[C('phone')]).replace(/\D/g,'') === normPhone){
-        sh.getRange(i+1, C('name')+1).setValue(p.name||r[C('name')]);
-        sh.getRange(i+1, C('address')+1).setValue(p.address||r[C('address')]);
-        sh.getRange(i+1, C('last_seen')+1).setValue(new Date());
-        return {ok:true, updated:true, customer_id: r[C('customer_id')]}};
-    }
-    const id = 'C-'+Utilities.getUuid().slice(0,8);
-    sh.appendRow([id, p.name||'', normPhone, p.address||'', new Date(), new Date(), 0]);
-    return {ok:true, created:true, customer_id:id};
-  });
-}
-
-function api_upsertCustomersBulk_(p){
-  return withLock_(()=> {
-    const rows = p.rows||[];
-    const sh = SH_(CFG.SHEETS.CUSTOMERS);
-    if (sh.getLastRow()===0) sh.appendRow(CFG.CUSTOMERS_HEADER);
-
-    const vals = sh.getDataRange().getValues();
-    const hdr = vals[0]; const C=(n)=>hdr.indexOf(n);
-    const mapPhoneRow = {};
-    for (let i=1;i<vals.length;i++){
-      const r=vals[i];
-      const phone = String(r[C('phone')]).replace(/\D/g,'');
-      if (phone) mapPhoneRow[phone] = i+1;
-    }
-    let updated=0, created=0;
-    rows.forEach(x=>{
-      const phone = String(x.phone||'').replace(/\D/g,''); if (!phone) return;
-      const name  = x.name||''; const addr = x.address||'';
-      const rowIdx = mapPhoneRow[phone];
-      if (rowIdx){
-        sh.getRange(rowIdx, C('name')+1).setValue(name || sh.getRange(rowIdx, C('name')+1).getValue());
-        sh.getRange(rowIdx, C('address')+1).setValue(addr || sh.getRange(rowIdx, C('address')+1).getValue());
-        sh.getRange(rowIdx, C('last_seen')+1).setValue(new Date());
-        updated++;
-      } else {
-        const id = 'C-'+Utilities.getUuid().slice(0,8);
-        sh.appendRow([id, name, phone, addr, new Date(), new Date(), 0]);
-        created++;
-      }
+    // إعدادات التطبيق (يحفظ إلى ورقة Settings)
+    function fillSettingsForm(){ $('#st_company').value=APP_CONFIG.COMPANY_NAME||''; $('#st_color').value=APP_CONFIG.PRIMARY_COLOR||'#f97316'; $('#st_font').value=APP_CONFIG.FONT_FAMILY||'Tajawal'; $('#st_req_addr').value=String(!!APP_CONFIG.POLICIES.REQUIRE_ADDRESS_DETAIL); $('#st_req_notes').value=String(!!APP_CONFIG.POLICIES.REQUIRE_NOTES); $('#st_req_photo').value=String(!!APP_CONFIG.POLICIES.REQUIRE_PHOTO); $('#st_notify_wa').value=String(!!APP_CONFIG.POLICIES.NOTIFY_WA); $('#st_notify_tg').value=String(!!APP_CONFIG.POLICIES.NOTIFY_TG); }
+    document.getElementById('btnSaveSettings').addEventListener('click', async ()=>{
+      if(!APP_CONFIG.API_BASE||!APP_CONFIG.API_KEY) return alert('اضبط اتصال السيرفر أولًا');
+      const payload={ COMPANY_NAME:$('#st_company').value.trim(), PRIMARY_COLOR:$('#st_color').value, FONT_FAMILY:$('#st_font').value.trim(), REQUIRE_ADDRESS_DETAIL:$('#st_req_addr').value, REQUIRE_NOTES:$('#st_req_notes').value, REQUIRE_PHOTO:$('#st_req_photo').value, NOTIFY_WA:$('#st_notify_wa').value, NOTIFY_TG:$('#st_notify_tg').value };
+      try{ await apiPOST({fn:'saveSettings', payload}); alert('تم الحفظ ✅'); Object.assign(APP_CONFIG, payload); document.documentElement.style.setProperty('--primary', APP_CONFIG.PRIMARY_COLOR); }catch(e){ alert('تعذّر الحفظ: '+e.message); }
     });
-    return {ok:true, count: updated+created, updated, created};
-  });
-}
 
-/******** Create + Assign + Send link ********/
-function api_createTicketAndAssign_(p){
-  return withLock_(()=> {
-    const shT = SH_(CFG.SHEETS.TICKETS);
-    if (shT.getLastRow()===0) shT.appendRow(CFG.TICKETS_HEADER);
-    const id = 'T-'+Utilities.getUuid().slice(0,8);
-    shT.appendRow([
-      id, '', p.customer_name||'', p.phone||'', p.address||'',
-      p.device_type||'', p.problem_desc||'', 'new', '', '', new Date(), '',
-      '', '', '', '', '', '', '', '', '' // باقي الأعمدة
-    ]);
+    // إنشاء التذكرة
+    document.getElementById('btnCreate').addEventListener('click', async ()=>{
+      const data={ ticket_id:'T-'+Date.now(), customer_name:$('#n_customer').value.trim(), phone:$('#n_phone').value.trim(), address:$('#n_address').value.trim(), device_type:$('#n_device').value.trim(), problem_desc:$('#n_problem').value.trim(), status:document.getElementById('n_status').value, assigned_to:document.getElementById('n_engineer').value };
+      if(!data.customer_name) return alert('أدخل اسم العميل');
+      try{ await apiPOST({fn:'addTicket', payload:data}); alert('تم إنشاء التذكرة'); bootstrap.Modal.getInstance(document.getElementById('mdlNew')).hide(); await reloadAll(); }catch(e){ alert('تعذّر الإنشاء: '+e.message); }
+    });
 
-    // assign
-    const asn = api_assignTicket_({ ticket_id:id, engineer:p.tech_id||p.engineer, customer_name:p.customer_name, phone:p.phone, summary:p.problem_desc });
+    async function __app_boot(){ if(!APP_CONFIG.API_BASE||!APP_CONFIG.API_KEY){ fillConnForm(); fillSettingsForm(); return; } await reloadAll(); fillConnForm(); fillSettingsForm(); document.getElementById('btnSearch').addEventListener('click', applyFilters); document.getElementById('btnReset').addEventListener('click', async ()=>{ $('#q').value=''; $('#fltTech').value=''; $('#fltStatus').value=''; $('#from').value=''; $('#to').value=''; await reloadAll(); }); document.getElementById('btnExportCSV').onclick=()=> exportCSV(ALL); document.getElementById('btnExportXLSX').onclick=()=> exportXLSX(ALL); }
+    window.__app_boot = __app_boot;
+  </script>
+</body>
+</html>
+```
 
-    // link for engineer
-    const baseEng = p.engineer_base || 'https://example.com/engineer-dashboard.html';
-    const url = `${baseEng}?engineer=${encodeURIComponent(asn.assigned_to_id || asn.assigned_to)}&ticket=${encodeURIComponent(id)}${p.api_key_for_link?`&key=${encodeURIComponent(p.api_key_for_link)}`:''}`;
+---
 
-    // WhatsApp direct to engineer phone (optional)
-    try{
-      const techs = api_listTechs_().data||[]; 
-      const tech = techs.find(t=> String(t.tech_id)===String(asn.assigned_to_id)) || techs.find(t=> t.name===asn.assigned_to);
-      if (tech?.phone){
-        const msg = `تذكرة جديدة #${id}\nعميل: ${p.customer_name||'-'}\nجهاز: ${p.device_type||'-'}\n${p.problem_desc||'-'}\n${url}`;
-        wa_send_to_(tech.phone, msg);
-      }
-    }catch(e){ Logger.log('WA engineer link error: '+e); }
+# engineer-dashboard.html (final)
 
-    log_('Create+Assign', id, asn.assigned_to, p.customer_name||'', 'من لوحة المدير', 'لوحة المدير');
-    return {ok:true, ticket_id:id, link:url, engineer_name: asn.assigned_to, engineer_id: asn.assigned_to_id||''};
-  });
-}
+```html
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>مصر تكنولوجى — لوحة المهندس</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#f97316">
+  <style>
+    :root{ --primary:#f97316; --bg:#faf8f5; --card:#fff; --text:#111 }
+    body{ font-family:'Tajawal', system-ui, -apple-system, Segoe UI, Roboto, Arial; background:var(--bg); color:var(--text) }
+    .navbar{ background:var(--primary)!important }
+    .pill{ border-radius:999px; font-size:.75rem; padding:.25rem .6rem; display:inline-block }
+    .pill-new{ background:#fff4ea; color:var(--primary) }
+    .pill-inp{ background:#eaf6ff; color:#0ea5e9 }
+    .pill-done{ background:#eafaf0; color:#16a34a }
+    .ticket-card:hover{ transform:translateY(-2px); transition:.2s }
+    .thumb{ width:70px; height:70px; object-fit:cover; border-radius:.7rem; border:1px solid #eee }
+    .form-control, .form-select{ border-radius:.8rem }
+    .floating-add{ position:fixed; inset-inline-end:16px; inset-block-end:16px; z-index:999 }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-dark">
+    <div class="container-fluid">
+      <div class="navbar-brand d-flex align-items-center gap-2">
+        <i class="fa-solid fa-screwdriver-wrench"></i>
+        <span>لوحة المهندس</span>
+        <span class="mx-2">•</span>
+        <span class="fw-bold" id="engineerNameShow">المهندس</span>
+      </div>
+    </div>
+  </nav>
 
-/******** Add Ticket (مدير) ********/
-function api_addTicket_(p){
-  const sh = SH_(CFG.SHEETS.TICKETS);
-  const hdr = readHeader_(sh);
-  const C = col_(hdr);
-  // يولّد ID إذا مش مرسل
-  const id = p.ticket_id || ('T-' + Utilities.getUuid().slice(0,8));
-  const row = new Array(hdr.length).fill('');
+  <div class="container py-4">
+    <div class="row g-3 align-items-end mb-3">
+      <div class="col-md-5">
+        <label class="form-label">بحث في تذاكري</label>
+        <input id="search" class="form-control" placeholder="ابحث باسم العميل / رقم التذكرة / نوع الجهاز" />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">الحالة</label>
+        <select id="fltStatus" class="form-select">
+          <option value="">كل الحالات</option>
+          <option value="new">new</option>
+          <option value="in_progress">in_progress</option>
+          <option value="done">done</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">من</label>
+        <input id="from" type="date" class="form-control" />
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">إلى</label>
+        <input id="to" type="date" class="form-control" />
+      </div>
+    </div>
 
-  const set = (name, val) => { const i = C(name); if (i > -1) row[i] = val; };
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-lg-3"><div class="card p-3 text-white" style="background:var(--primary)"><div class="small opacity-75">إجمالي تذاكري</div><div class="h4 m-0" id="kAll">0</div></div></div>
+      <div class="col-6 col-lg-3"><div class="card p-3 text-white" style="background:#0ea5e9"><div class="small opacity-75">قيد التنفيذ</div><div class="h4 m-0" id="kInp">0</div></div></div>
+      <div class="col-6 col-lg-3"><div class="card p-3 text-white" style="background:#22c55e"><div class="small opacity-75">مكتملة</div><div class="h4 m-0" id="kDone">0</div></div></div>
+      <div class="col-6 col-lg-3"><div class="card p-3 text-white" style="background:#a78bfa"><div class="small opacity-75">مواعيد اليوم</div><div class="h4 m-0" id="kToday">0</div></div></div>
+    </div>
 
-  set('ticket_id', id);
-  set('customer_id', p.customer_id || '');
-  set('customer_name', p.customer_name || '');
-  set('phone', p.phone || '');
-  set('address', p.address || '');
-  set('device_type', p.device_type || '');
-  set('problem_desc', p.problem_desc || '');
-  set('status', p.status || 'new');
-  set('assigned_to', p.assigned_to || '');
-  set('opened_at', new Date());
-  set('deposit', Number(p.deposit || 0));
-  set('total',   Number(p.total   || 0));
-  set('address_detail', p.address_detail || '');
-  set('order_notes',    p.order_notes    || '');
+    <div id="list" class="row g-3"></div>
+    <div id="empty" class="text-center text-muted py-5 d-none"><i class="fa-regular fa-face-grin-beam-sweat fa-2x mb-3"></i><div>لا توجد تذاكر مطابقة الآن</div></div>
+  </div>
 
-  sh.appendRow(row);
-  log_('Add Ticket', id, p.assigned_to||'', p.customer_name||'', 'إنشاء من لوحة المدير', 'لوحة المدير');
-  return { ok:true, ticket_id:id };
-}
+  <button class="btn btn-primary rounded-pill shadow floating-add" id="btnQuick"><i class="fa-solid fa-bolt me-1"></i> حفظ التغييرات الجارية</button>
 
-/******************* NOTIFY *******************/
-function notifyAll_(message){
-  try{ wa_send_(message); }catch(e){ Logger.log('WA error: '+e); }
-  try{ tg_send_(message); }catch(e){ Logger.log('TG error: '+e); }
-}
-function notifyAllDebounced_(key, message, seconds){
-  const cache = CacheService.getScriptCache();
-  const k = 'ntf_'+key;
-  if (cache.get(k)) return 'skip';
-  if (message) notifyAll_(message);
-  cache.put(k, '1', seconds||60);
-}
-function wa_send_(text){
-  const sp = PropertiesService.getScriptProperties();
-  const phone = sp.getProperty('WHATSAPP_PHONE'); // رقم إداري أو مجموعة
-  const apikey= sp.getProperty('WHATSAPP_APIKEY');
-  const settings = getSettingsMap_();
-  if (String(settings.NOTIFY_WA||'true').toLowerCase()!=='true') return 'skip-wa-disabled';
-  const norm = String(phone||'').replace(/\D/g,'');
-  if (!norm || !apikey || !text) return 'skip-wa';
-  const url = 'https://api.callmebot.com/whatsapp.php';
-  const params = { method:'post', payload: { phone: norm, text, apikey } };
-  const r = UrlFetchApp.fetch(url, params);
-  return r.getResponseCode();
-}
-function wa_send_to_(phone, text){
-  const apikey= PropertiesService.getScriptProperties().getProperty('WHATSAPP_APIKEY');
-  const settings = getSettingsMap_();
-  if (String(settings.NOTIFY_WA||'true').toLowerCase()!=='true') return 'skip-wa-disabled';
-  const norm = String(phone||'').replace(/\D/g,'');
-  if (!norm || !apikey || !text) return 'skip-wa';
-  const url = 'https://api.callmebot.com/whatsapp.php';
-  const params = { method:'post', payload: { phone: norm, text, apikey } };
-  const r = UrlFetchApp.fetch(url, params);
-  return r.getResponseCode();
-}
-function tg_send_(text){
-  const sp = PropertiesService.getScriptProperties();
-  const token = sp.getProperty('TELEGRAM_BOT_TOKEN');
-  const chat  = sp.getProperty('TELEGRAM_CHAT_ID');
-  const settings = getSettingsMap_();
-  if (String(settings.NOTIFY_TG||'false').toLowerCase()!=='true') return 'skip-tg-disabled';
-  if (!token || !chat || !text) return 'skip-tg';
-  const url = `https://api.telegram.org/bot${token}/sendMessage`;
-  const payload = { chat_id: chat, text, parse_mode: 'HTML' };
-  const r = UrlFetchApp.fetch(url, { method:'post', contentType:'application/json', payload: JSON.stringify(payload) });
-  return r.getResponseCode();
-}
-function tg_getUpdates_(){
-  const token = PropertiesService.getScriptProperties().getProperty('TELEGRAM_BOT_TOKEN');
-  if (!token) return {ok:false, error:'Set TELEGRAM_BOT_TOKEN first'};
-  const url = `https://api.telegram.org/bot${token}/getUpdates`;
-  const r = UrlFetchApp.fetch(url);
-  return JSON.parse(r.getContentText());
-}
+  <div class="modal fade" id="mdl" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header"><h6 class="modal-title">تفاصيل التذكرة</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-4"><label class="form-label">رقم التذكرة</label><input id="f_id" class="form-control" disabled /></div>
+            <div class="col-md-4"><label class="form-label">العميل</label><input id="f_customer" class="form-control" disabled /></div>
+            <div class="col-md-4"><label class="form-label">الهاتف</label>
+              <div class="input-group">
+                <input id="f_phone" class="form-control" disabled />
+                <a id="f_whatsapp" class="btn btn-success" target="_blank"><i class="fa-brands fa-whatsapp"></i></a>
+                <a id="f_call" class="btn btn-outline-secondary" target="_blank"><i class="fa-solid fa-phone"></i></a>
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="form-label">العنوان بالتفصيل</label>
+              <div class="input-group">
+                <textarea id="f_addr_detail" class="form-control" rows="2" placeholder="مثال: الدور الثالث شقة 12..."></textarea>
+                <a id="btnMap" class="btn btn-outline-success" target="_blank"><i class="fa-solid fa-map-location-dot"></i></a>
+              </div>
+            </div>
+            <div class="col-6 col-md-3"><label class="form-label">العربون</label><input id="f_dep" type="number" class="form-control" /></div>
+            <div class="col-6 col-md-3"><label class="form-label">الإجمالي</label><input id="f_tot" type="number" class="form-control" /></div>
+            <div class="col-12"><label class="form-label">تفاصيل/تشخيص الطلب</label><textarea id="f_notes" class="form-control" rows="3" placeholder="مثال: تغيير سير، تغيير موتور، إصلاح كارتة..."></textarea></div>
+          </div>
+          <div class="mt-3">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="fw-semibold">قطع مسحوبة</div>
+              <button class="btn btn-sm btn-outline-primary" id="btnAddPart"><i class="fa-solid fa-plus"></i> إضافة قطعة</button>
+            </div>
+            <div id="parts" class="mt-2"></div>
+          </div>
+          <div class="mt-3">
+            <div class="fw-semibold">صور الزيارة</div>
+            <div class="row g-2 align-items-center mt-1">
+              <div class="col-auto">
+                <label class="btn btn-outline-secondary mb-0">
+                  <i class="fa-solid fa-camera me-1"></i> رفع صور/فتح الكاميرا
+                  <input id="f_photos" type="file" accept="image/*" capture="environment" multiple hidden />
+                </label>
+              </div>
+              <div class="col"><div id="photoPreview" class="d-flex gap-2 flex-wrap"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">إغلاق</button>
+          <button id="btnSave" class="btn btn-primary">حفظ</button>
+          <button id="btnDone" class="btn btn-success">تم الإغلاق</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-/******************* HELPERS *******************/
-function SH_(name){ return SpreadsheetApp.getActive().getSheetByName(name) || SpreadsheetApp.getActive().insertSheet(name); }
-function readAll_(sh){ const rng = sh.getDataRange(); const vals = rng.getValues(); return {hdr: vals[0], data: vals.slice(1)}; }
-function readHeader_(sh){ return sh.getRange(1,1,1,Math.max(1, sh.getLastColumn())).getValues()[0]; }
-function col_(hdr){ return (name)=> hdr.indexOf(name); }
-function ensureCols_(sh, hdr, needed){
-  let local = hdr.slice();
-  needed.forEach(n=>{
-    if (local.indexOf(n)===-1){
-      sh.insertColumnAfter(sh.getLastColumn());
-      sh.getRange(1, sh.getLastColumn()).setValue(n);
-      local.push(n);
-    }
-  });
-}
-function rowToTicket_(hdr, r){
-  const C = col_(hdr);
-  return {
-    ticket_id:r[C('ticket_id')], customer_id:r[C('customer_id')],
-    customer_name:r[C('customer_name')], phone:r[C('phone')], address:r[C('address')],
-    device_type:r[C('device_type')], problem_desc:r[C('problem_desc')],
-    status:r[C('status')], assigned_to:r[C('assigned_to')], assigned_to_id:r[C('assigned_to_id')],
-    opened_at:r[C('opened_at')], closed_at:r[C('closed_at')], deposit:r[C('deposit')], total:r[C('total')],
-    address_detail:r[C('address_detail')], order_notes:r[C('order_notes')], engineer_notes:r[C('engineer_notes')],
-    pulled_parts:r[C('pulled_parts')], device_images:r[C('device_images')], due_at:r[C('due_at')], last_update:r[C('last_update')]
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- مُحمّل إعدادات مشترك -->
+  <script>
+  window.APP_CONFIG = {
+    API_BASE:'', API_KEY:'', DEFAULT_COUNTRY_CODE:'20', COMPANY_NAME:'لوحة إدارة الصيانة', PRIMARY_COLOR:'#f97316', FONT_FAMILY:'Tajawal',
+    POLICIES:{REQUIRE_ADDRESS_DETAIL:true, REQUIRE_NOTES:true, REQUIRE_PHOTO:false, NOTIFY_WA:true, NOTIFY_TG:false}
   };
-}
-function getOrCreatePhotosFolder_(){ const it = DriveApp.getFoldersByName(CFG.PHOTOS_FOLDER); return it.hasNext()? it.next() : DriveApp.createFolder(CFG.PHOTOS_FOLDER); }
-function getOrCreateBackupFolder_(){ const it = DriveApp.getFoldersByName(CFG.BACKUP_FOLDER); return it.hasNext()? it.next() : DriveApp.createFolder(CFG.BACKUP_FOLDER); }
-function dataUrlToFile_(dataUrl, filename, folder, customerName, techName){
-  const parts = (dataUrl||'').split(','); if (parts.length<2) throw new Error('Bad dataUrl');
-  const mime = (parts[0].match(/data:(.*);base64/)||[])[1] || 'image/jpeg';
-  const bytes = Utilities.base64Decode(parts[1]);
-  const blob = Utilities.newBlob(bytes, mime, filename);
-  const f = folder.createFile(blob).setName(filename);
-  f.setDescription(`Customer:${customerName||''} | Engineer:${techName||''}`);
-  try { f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch(e){}
-  return f;
-}
+  const $ = s=> document.querySelector(s);
+  const $el=(t,a={},h='')=>{const e=document.createElement(t);Object.entries(a).forEach(([k,v])=> e.setAttribute(k,v)); if(h) e.innerHTML=h; return e; };
+  function applyThemeFromConfig(cfg){ if(cfg?.PRIMARY_COLOR) document.documentElement.style.setProperty('--primary', cfg.PRIMARY_COLOR); if(cfg?.FONT_FAMILY) document.body.style.fontFamily = cfg.FONT_FAMILY + ', system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+  async function apiGET(url){ const r=await fetch(url,{cache:'no-store'}); const j=await r.json(); if(!j.ok) throw new Error(j.error||'API'); return j; }
+  async function apiPOST(body){ const r=await fetch(APP_CONFIG.API_BASE,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({key:APP_CONFIG.API_KEY},body))}); const j=await r.json(); if(!j.ok) throw new Error(j.error||'API'); return j; }
+  const getParam=(n)=> new URL(location.href).searchParams.get(n);
+  const waLink=(num,txt='')=>{ const n=(num||'').replace(/\D/g,''); return n?`https://wa.me/${n}?text=${encodeURIComponent(txt)}`:'#'; };
+  const telLink=(num)=>{ const n=(num||'').replace(/\D/g,''); return n?`tel:${n}`:'#'; };
+  const gmaps=(addr)=> `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr||'')}`;
 
-/******** Settings helpers ********/
-function getSettingsMap_(){
-  const sh = SH_(CFG.SHEETS.SETTINGS);
-  if (sh.getLastRow()<2) return Object.assign({}, CFG.DEFAULT_SETTINGS);
-  const vals = sh.getRange(2,1, sh.getLastRow()-1, 2).getValues();
-  const map = {}; vals.forEach(r=>{ if (r[0]) map[String(r[0]).trim()] = String(r[1]??''); });
-  return Object.assign({}, CFG.DEFAULT_SETTINGS, map);
-}
-function setSettingsMap_(obj){
-  const sh = SH_(CFG.SHEETS.SETTINGS);
-  const cur = getSettingsMap_();
-  const merged = Object.assign({}, cur, obj||{});
-  sh.clear(); sh.appendRow(CFG.SETTINGS_HEADER);
-  Object.keys(merged).forEach(k=> sh.appendRow([k, merged[k]]));
-  return merged;
-}
-
-/******************* LOGS & BACKUP & CRON *******************/
-function log_(action, ticket_id, engineer, customer, details, actor){
-  const sh = SH_(CFG.SHEETS.LOGS);
-  const ts = Utilities.formatDate(new Date(), CFG.TZ, 'yyyy-MM-dd HH:mm:ss');
-  sh.appendRow([ts, actor||'', action||'', ticket_id||'', engineer||'', customer||'', details||'']);
-}
-function backupDaily(){
-  // لازم تفعّل Advanced Drive API لهذا المشروع
-  const ss = SpreadsheetApp.getActive();
-  const name = `${ss.getName()}__${Utilities.formatDate(new Date(), CFG.TZ, 'yyyyMMdd_HHmm')}.xlsx`;
-  const blob = Drive.Files.export(ss.getId(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  const folder = getOrCreateBackupFolder_();
-  folder.createFile(blob).setName(name);
-  return 'backup created';
-}
-function setupBackupTrigger(){
-  ScriptApp.getProjectTriggers().forEach(t=>{ if (t.getHandlerFunction()==='backupDaily') ScriptApp.deleteTrigger(t); });
-  ScriptApp.newTrigger('backupDaily').timeBased().everyDays(1).atHour(3).create();
-  return 'backup trigger set';
-}
-function notifyOverdueDaily(){
-  const sh = SH_(CFG.SHEETS.TICKETS);
-  const {hdr, data} = readAll_(sh);
-  const C = col_(hdr);
-  const now = new Date();
-  const overdue = [];
-  data.forEach(r=>{
-    const status = String(r[C('status')]||'');
-    if (status==='done') return;
-    const due = r[C('due_at')] ? new Date(r[C('due_at')]) : null;
-    const opened = r[C('opened_at')] ? new Date(r[C('opened_at')]) : null;
-    const late = (due && now>due) || (!due && opened && ((now-opened)/(1000*3600*24) >= 3));
-    if (late){
-      overdue.push({ ticket_id:r[C('ticket_id')], engineer:r[C('assigned_to')], customer:r[C('customer_name')], phone:r[C('phone')] });
+  window.__BOOT=(async function(){
+    const qs=new URLSearchParams(location.search); const qApi=qs.get('api'), qKey=qs.get('key'); if(qApi) localStorage.setItem('API_BASE', qApi); if(qKey) localStorage.setItem('API_KEY', qKey);
+    try{ const r=await fetch('./config.json',{cache:'no-store'}); if(r.ok){ Object.assign(APP_CONFIG, await r.json()); } }catch(_){ }
+    APP_CONFIG.API_BASE = localStorage.getItem('API_BASE') || APP_CONFIG.API_BASE || '';
+    APP_CONFIG.API_KEY  = localStorage.getItem('API_KEY')  || APP_CONFIG.API_KEY  || '';
+    applyThemeFromConfig(APP_CONFIG);
+    if(APP_CONFIG.API_BASE && APP_CONFIG.API_KEY){
+      try{ const j=await apiGET(`${APP_CONFIG.API_BASE}?fn=listSettings&key=${encodeURIComponent(APP_CONFIG.API_KEY)}`);
+        if(j?.ok&&j.data){ const S=j.data; APP_CONFIG.COMPANY_NAME=S.COMPANY_NAME??APP_CONFIG.COMPANY_NAME; APP_CONFIG.PRIMARY_COLOR=S.PRIMARY_COLOR??APP_CONFIG.PRIMARY_COLOR; APP_CONFIG.FONT_FAMILY=S.FONT_FAMILY??APP_CONFIG.FONT_FAMILY; APP_CONFIG.POLICIES={
+          REQUIRE_ADDRESS_DETAIL:String(S.REQUIRE_ADDRESS_DETAIL??'true').toLowerCase()==='true',
+          REQUIRE_NOTES:String(S.REQUIRE_NOTES??'true').toLowerCase()==='true',
+          REQUIRE_PHOTO:String(S.REQUIRE_PHOTO??'false').toLowerCase()==='true',
+          NOTIFY_WA:String(S.NOTIFY_WA??'true').toLowerCase()==='true',
+          NOTIFY_TG:String(S.NOTIFY_TG??'false').toLowerCase()==='true'}; }
+      }catch(e){ console.warn('settings:',e.message); }
     }
+    if(typeof window.__app_boot==='function'){ window.__app_boot(); }
   });
-  if (!overdue.length) return {ok:true, count:0};
-  const msg = 'تنبيه: تذاكر متأخرة:\n' + overdue.map(o=>`- ${o.ticket_id} (${o.customer||'-'})`).join('\n');
-  notifyAllDebounced_('overdue_'+Utilities.getUuid().slice(0,6), msg, 300);
-  log_('OverdueNotify', '', '', '', `count=${overdue.length}`, 'Cron');
-  return {ok:true, count:overdue.length};
-}
-function setupOverdueTrigger(){
-  ScriptApp.getProjectTriggers().forEach(t=>{ if (t.getHandlerFunction()==='notifyOverdueDaily') ScriptApp.deleteTrigger(t); });
-  ScriptApp.newTrigger('notifyOverdueDaily').timeBased().everyDays(1).atHour(9).create();
-  return 'overdue trigger set';
-}
+  </script>
 
-/******************* SELF TEST *******************/
-function selfTestLocal(send){ return selfTestCore_(send===true); }
-function selfTestHttp_(e){
-  const send = String(e.parameter.send||'false').toLowerCase()==='true';
-  const rep = selfTestCore_(send);
-  return ContentService.createTextOutput(JSON.stringify({ok:true, report:rep})).setMimeType(ContentService.MimeType.JSON);
-}
-function selfTestCore_(doSend){
-  const TZ = CFG.TZ;
-  const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm:ss');
-  const sp = PropertiesService.getScriptProperties();
-  const mustSheets = Object.values(CFG.SHEETS);
+  <!-- كود صفحة المهندس -->
+  <script>
+    let engineer='المهندس'; let tickets=[]; let current=null;
+    function statusPill(s){ if (s==='in_progress') return '<span class="pill pill-inp">قيد التنفيذ</span>'; if (s==='done') return '<span class="pill pill-done">مكتمل</span>'; return '<span class="pill pill-new">جديد</span>'; }
 
-  const keys = {
-    API_KEY: !!sp.getProperty('API_KEY'),
-    WHATSAPP_PHONE: !!sp.getProperty('WHATSAPP_PHONE'),
-    WHATSAPP_APIKEY: !!sp.getProperty('WHATSAPP_APIKEY'),
-    TELEGRAM_BOT_TOKEN: !!sp.getProperty('TELEGRAM_BOT_TOKEN'),
-    TELEGRAM_CHAT_ID: !!sp.getProperty('TELEGRAM_CHAT_ID')
-  };
-  const ss = SpreadsheetApp.getActive();
-  const sheets = {};
-  mustSheets.forEach(n=>{
-    const sh = ss.getSheetByName(n);
-    sheets[n] = { exists: !!sh, headers: [], headersOk: null };
-    if (sh){
-      const hdr = sh.getRange(1,1,1, Math.max(1, sh.getLastColumn())).getValues()[0];
-      sheets[n].headers = hdr;
-      if (n==='Tickets'){
-        const need = ['ticket_id','customer_name','phone','address','device_type','problem_desc','status','assigned_to','opened_at'];
-        sheets[n].headersOk = need.every(h=> hdr.indexOf(h) !== -1);
-      } else if (n==='Technicians'){
-        sheets[n].headersOk = ['tech_id','name','phone'].every(h=> hdr.indexOf(h) !== -1);
-      } else if (n==='PulledParts'){
-        const need = ['id','ticket_id','customer_name','tech_id','tech_name','part_name','qty','photo_file_id'];
-        sheets[n].headersOk = need.every(h=> hdr.indexOf(h) !== -1);
-      } else if (n==='Logs'){
-        const need = ['ts','actor','action','ticket_id','engineer','customer','details'];
-        sheets[n].headersOk = need.every(h=> hdr.indexOf(h) !== -1);
-      } else if (n==='Settings'){
-        sheets[n].headersOk = hdr[0]==='key' && hdr[1]==='value';
-      } else if (n==='Customers'){
-        sheets[n].headersOk = ['customer_id','name','phone'].every(h=> hdr.indexOf(h) !== -1);
-      }
-    }
-  });
+    async function fetchTicketsFromServer(engineer){ const url=`${APP_CONFIG.API_BASE}?fn=listTickets&engineer=${encodeURIComponent(engineer)}&key=${encodeURIComponent(APP_CONFIG.API_KEY)}`; const j=await apiGET(url); return j.data.map(t=>({ id:t.ticket_id, customer:t.customer_name, phone:t.phone, address:t.address, device:t.device_type, problem:t.problem_desc, status:t.status||'new', assigned_to:t.assigned_to, date:(t.opened_at||''), dep:Number(t.deposit||0), tot:Number(t.total||0), addr_detail:t.address_detail||'', notes:t.order_notes||'', parts:[], photos:[] })); }
+    async function apiUpdateTicket(payload){ return apiPOST({ fn:'updateTicket', payload }); }
+    async function apiUploadPhotos(payload){ return apiPOST({ fn:'uploadPhotos', payload }); }
 
-  const settings = getSettingsMap_();
-  const settingsOk = ['COMPANY_NAME','PRIMARY_COLOR','FONT_FAMILY','REQUIRE_ADDRESS_DETAIL','REQUIRE_NOTES','REQUIRE_PHOTO','NOTIFY_WA','NOTIFY_TG']
-    .every(k=> k in settings);
+    function ticketCard(t){ const col=$el('div',{class:'col-12 col-md-6 col-xl-4'}); const overdue=(t.status!=='done'&&t.date&&(Date.now()-new Date(t.date).getTime())/86400000>=3)?'<span class="badge bg-danger ms-2">متأخرة</span>':''; col.innerHTML=`<div class="card p-3 ticket-card"><div class="d-flex justify-content-between align-items-start"><div><div class="fw-semibold">${t.customer}</div><div class="small text-muted">${t.device||'-'} — ${t.problem||'-'}</div><div class="small text-muted">${t.address||'-'}</div></div><div>${statusPill(t.status)}${overdue}</div></div><div class="d-flex gap-2 mt-2"><a class="btn btn-success btn-sm" href="${waLink(t.phone,'مرحبًا، أنا المهندس المكلف بطلبك.')}" target="_blank"><i class="fa-brands fa-whatsapp me-1"></i> واتساب</a><a class="btn btn-outline-secondary btn-sm" href="${telLink(t.phone)}"><i class="fa-solid fa-phone me-1"></i> اتصال</a><a class="btn btn-outline-success btn-sm" href="${gmaps(t.address)}" target="_blank"><i class="fa-solid fa-map-location-dot me-1"></i> خريطة</a><button class="btn btn-primary btn-sm" onclick="openDetails('${t.id}')"><i class="fa-solid fa-pen me-1"></i> التفاصيل</button><button class="btn btn-outline-secondary btn-sm" onclick="markInProgress('${t.id}')">بدء</button><button class="btn btn-outline-success btn-sm" onclick="markDone('${t.id}')">تم</button></div></div>`; return col; }
 
-  let photosFolderOK = true, backupFolderOK = true;
-  try{ getOrCreatePhotosFolder_(); }catch(e){ photosFolderOK = false; }
-  try{ getOrCreateBackupFolder_(); }catch(e){ backupFolderOK = false; }
+    function openDetails(id){ current=tickets.find(x=>x.id===id); if(!current) return; $('#f_id').value=current.id; $('#f_customer').value=current.customer; $('#f_phone').value=current.phone||''; $('#f_whatsapp').href=waLink(current.phone,`مرحبًا ${current.customer||''}`); $('#f_call').href=telLink(current.phone); $('#f_addr_detail').value=current.addr_detail||''; $('#f_dep').value=current.dep||0; $('#f_tot').value=current.tot||0; $('#f_notes').value=current.notes||''; $('#btnMap').href=gmaps(`${current.address||''} ${($('#f_addr_detail').value||'')}`.trim()); const parts=$('#parts'); parts.innerHTML=''; (current.parts||[]).forEach((p,i)=> parts.appendChild(partRow(i,p.name,p.qty))); const prev=$('#photoPreview'); prev.innerHTML=''; (current.photos||[]).forEach(src=> prev.appendChild(imgThumb(src))); new bootstrap.Modal($('#mdl')).show(); }
 
-  const shT = ss.getSheetByName('Tickets');
-  const shX = ss.getSheetByName('Technicians');
-  let ticketsCount = 0, techsCount = 0;
-  try{ ticketsCount = Math.max(0, (shT?.getLastRow()||1)-1); }catch(e){}
-  try{ techsCount   = Math.max(0, (shX?.getLastRow()||1)-1); }catch(e){}
+    function partRow(i,name='',qty=1){ const wrap=$el('div',{class:'row g-2 align-items-center mb-1'}); wrap.innerHTML=`<div class="col-7"><input class="form-control" type="text" placeholder="اسم القطعة" value="${name}"></div><div class="col-3"><input type="number" class="form-control" value="${qty}"></div><div class="col-2 d-grid"><button class="btn btn-outline-danger" type="button">حذف</button></div>`; wrap.querySelector('button').onclick=()=> wrap.remove(); return wrap; }
 
-  let notifyTried = false, notifyResult = 'skipped';
-  if (doSend){ notifyTried = true; try{ notifyAllDebounced_('selftest_'+Date.now(), 'اختبار ذاتي للنظام ✅ ('+now+')', 10); notifyResult = 'sent'; }catch(e){ notifyResult='error:'+e.message; } }
+    function onPhotosSelected(e){ const prev=$('#photoPreview'); [...e.target.files].forEach(file=>{ const r=new FileReader(); r.onload=()=> prev.appendChild(imgThumb(r.result)); r.readAsDataURL(file); }); }
+    function imgThumb(src){ const img=$el('img',{src, class:'thumb'}); return img; }
+    function formHasPhoto(){ return document.querySelectorAll('#photoPreview img').length>0; }
 
-  const tips = [];
-  if (!keys.API_KEY) tips.push('ضبط Script Property باسم API_KEY مطلوب.');
-  if (!sheets.Tickets?.exists) tips.push('ورقة Tickets غير موجودة — شغّل setupAll().');
-  if (sheets.Tickets?.exists && sheets.Tickets.headersOk===false) tips.push('رؤوس Tickets ناقصة — شغّل setupAll() أو صحح الرؤوس.');
-  if (!sheets.Technicians?.exists) tips.push('أضف ورقة Technicians وأدخل مهندس واحد على الأقل.');
-  if (ticketsCount===0) tips.push('لا توجد تذاكر — جرّب إضافة تذكرة اختبارية.');
-  if (!photosFolderOK) tips.push('فشل إنشاء/الوصول إلى مجلد الصور على Drive.');
-  if (!backupFolderOK) tips.push('فشل إنشاء/الوصول إلى مجلد النسخ الاحتياطي على Drive.');
+    function validateBeforeSaveOrClose(requirePhoto){ const errs=[]; const REQ=APP_CONFIG.POLICIES||{}; if(String(REQ.REQUIRE_ADDRESS_DETAIL||'true').toLowerCase()==='true' && !$('#f_addr_detail').value.trim()) errs.push('العنوان التفصيلي'); if(String(REQ.REQUIRE_NOTES||'true').toLowerCase()==='true' && !$('#f_notes').value.trim()) errs.push('تفاصيل/تشخيص الطلب'); if(requirePhoto && String(REQ.REQUIRE_PHOTO||'false').toLowerCase()==='true' && !formHasPhoto()) errs.push('صورة واحدة على الأقل'); if(errs.length){ alert('الحقول المطلوبة: '+errs.join(' + ')); return false; } return true; }
 
-  return {
-    ts: now, keys, sheets, settingsSummary: { ok: settingsOk, ...settings },
-    drive: { photosFolderOK, backupFolderOK },
-    counts: { tickets: ticketsCount, technicians: techsCount },
-    notify: { tried: notifyTried, result: notifyResult },
-    suggestions: tips
-  };
-}
+    async function saveTicketDetails(){ if(!current) return; if(!validateBeforeSaveOrClose(false)) return; const payload={ ticket_id:current.id, engineer, address_detail:$('#f_addr_detail').value.trim(), deposit:Number($('#f_dep').value||0), total:Number($('#f_tot').value||0), order_notes:$('#f_notes').value.trim(), pulled_parts:partsToText(), markDone:false }; await apiUpdateTicket(payload); const photosDataUrls=[...document.querySelectorAll('#photoPreview img')].map(i=> i.src); if(photosDataUrls.length){ await apiUploadPhotos({ ticket_id:current.id, engineer, customer_name:current.customer, tech_name:engineer, photos:photosDataUrls, parts:[] }); } alert('تم الحفظ.'); try{ tickets=await fetchTicketsFromServer(engineer);}catch(e){} bootstrap.Modal.getInstance($('#mdl')).hide(); renderList(); }
 
-/******** TEST SHORTCUTS ********/
-function test_setup(){ return setupAll(); }
-function test_notify(){ notifyAll_('اختبار الإشعارات ✅'); return 'sent'; }
+    async function markInProgress(id){ const t=tickets.find(x=>x.id===id); if(!t) return; current=t; await apiUpdateTicket({ ticket_id:id, engineer, status:'in_progress', markDone:false }); try{ tickets=await fetchTicketsFromServer(engineer);}catch(e){} renderList(); }
+    async function markDone(id){ if(!id) return; if(!current) current=tickets.find(x=>x.id===id); if(!validateBeforeSaveOrClose(true)) return; await apiUpdateTicket({ ticket_id:id, engineer, markDone:true }); alert('تم إغلاق التذكرة.'); try{ tickets=await fetchTicketsFromServer(engineer);}catch(e){} renderList(); bootstrap.Modal.getInstance($('#mdl'))?.hide(); }
+
+    function partsToText(){ const rows=[...document.querySelectorAll('#parts .row')]; return rows.map(r=>{ const name=r.querySelector('input[type="text"]').value.trim(); const qty=Number(r.querySelector('input[type="number"]').value||1); return name?`${name} x${qty}`:''; }).filter(Boolean).join('\n'); }
+
+    function renderList(){ const list=$('#list'); list.innerHTML=''; const q=($('#search').value||'').toLowerCase(); const st=$('#fltStatus').value; const from=$('#from').value; const to=$('#to').value; const mine=tickets.filter(t=> t.assigned_to===engineer).filter(t=> !q || (`${t.id} ${t.customer} ${t.device} ${t.problem}`.toLowerCase().includes(q))).filter(t=> !st || t.status===st).filter(t=> !from || new Date(t.date)>=new Date(from)).filter(t=> !to || new Date(t.date)<=new Date(to+'T23:59:59')); document.getElementById('kAll').textContent=mine.length; document.getElementById('kInp').textContent=mine.filter(x=>x.status==='in_progress').length; document.getElementById('kDone').textContent=mine.filter(x=>x.status==='done').length; const todayStr=new Date().toISOString().slice(0,10); document.getElementById('kToday').textContent=mine.filter(x=> (x.date||'').slice(0,10)===todayStr).length; if(!mine.length){ $('#empty').classList.remove('d-none'); return } else { $('#empty').classList.add('d-none'); } mine.forEach(t=> list.appendChild(ticketCard(t))); }
+
+    function __app_boot(){ engineer=getParam('engineer')||getParam('tech')||engineer; document.getElementById('engineerNameShow').textContent=engineer; ['search','fltStatus','from','to'].forEach(id=> document.getElementById(id).addEventListener('input', renderList)); document.getElementById('f_photos').addEventListener('change', onPhotosSelected); document.getElementById('btnAddPart').addEventListener('click', ()=> document.getElementById('parts').appendChild(partRow(Date.now())) ); document.getElementById('btnSave').addEventListener('click', saveTicketDetails); document.getElementById('btnDone').addEventListener('click', ()=> markDone(current?.id)); (async()=>{ try{ tickets=await fetchTicketsFromServer(engineer);}catch(e){ tickets=[]; } renderList(); })(); }
+    window.__app_boot = __app_boot;
+  </script>
+</body>
+</html>
+```
